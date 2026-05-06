@@ -3,7 +3,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma";
 
 function createPrisma() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Strip Prisma-specific query params that pg library doesn't understand
+  const rawUrl = process.env.DATABASE_URL ?? "";
+  const url = new URL(rawUrl);
+  url.searchParams.delete("pgbouncer");
+  url.searchParams.delete("connection_limit");
+
+  const pool = new Pool({ connectionString: url.toString(), ssl: { rejectUnauthorized: false } });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
