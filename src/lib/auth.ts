@@ -25,6 +25,7 @@ const devCredentialsProvider = CredentialsProvider({
 });
 
 export const authOptions: NextAuthOptions = {
+  debug: true,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: PrismaAdapter(db as any),
   providers: [
