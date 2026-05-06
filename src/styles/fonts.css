@@ -1,0 +1,12 @@
+/* Font utility classes for explicit font overrides */
+.font-serif {
+  font-family: var(--font-newsreader), Georgia, serif;
+}
+
+.font-sans {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-jetbrains-mono), "Courier New", monospace;
+}

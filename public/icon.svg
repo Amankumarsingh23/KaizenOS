@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#6B8F71"/>
+  <!-- Letter K — left vertical stroke -->
+  <rect x="148" y="128" width="56" height="256" rx="12" fill="#FAF7F0"/>
+  <!-- Letter K — top-right diagonal -->
+  <polygon points="204,256 380,128 340,128 174,256" fill="#FAF7F0"/>
+  <polygon points="168,256 344,128 380,128 204,256" fill="#FAF7F0" opacity="0"/>
+  <!-- K top arm -->
+  <polygon points="204,244 352,128 396,128 248,244" fill="#FAF7F0"/>
+  <!-- K bottom arm -->
+  <polygon points="204,268 248,268 396,384 352,384" fill="#FAF7F0"/>
+  <!-- Subtle inner shadow for depth -->
+  <rect x="148" y="128" width="56" height="256" rx="12" fill="#FAF7F0"/>
+</svg>

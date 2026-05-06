@@ -1,0 +1,39 @@
+{
+  "name": "KaizenOS",
+  "short_name": "KaizenOS",
+  "description": "Your personal growth operating system — continuous improvement, every day.",
+  "theme_color": "#6B8F71",
+  "background_color": "#F5F0E8",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/",
+  "id": "kaizen-os-app",
+  "categories": ["productivity", "education"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/icon.svg",      "sizes": "any",     "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg",      "sizes": "any",     "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/icon-192.png",  "sizes": "192x192", "type": "image/png",     "purpose": "any maskable" },
+    { "src": "/icon-512.png",  "sizes": "512x512", "type": "image/png",     "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Log Session",
+      "short_name": "Log",
+      "description": "Open the study timer",
+      "url": "/timer",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Today's Plan",
+      "short_name": "Today",
+      "description": "View today's dashboard",
+      "url": "/",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}
