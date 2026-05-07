@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getUserId } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -8,7 +9,8 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const userId = (session.user as { id: string }).id;
+  const userId = await getUserId(session);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const reports = await db.dailyReport.findMany({
     where: { userId },
