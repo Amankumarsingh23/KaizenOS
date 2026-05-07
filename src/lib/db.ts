@@ -8,6 +8,7 @@ function createPrisma() {
   const url = new URL(rawUrl);
   url.searchParams.delete("pgbouncer");
   url.searchParams.delete("connection_limit");
+  url.searchParams.delete("sslmode");
 
   const pool = new Pool({ connectionString: url.toString(), ssl: { rejectUnauthorized: false } });
   const adapter = new PrismaPg(pool);
