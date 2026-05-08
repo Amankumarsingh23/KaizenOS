@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import {
   CheckCircle2, TrendingUp, TrendingDown, Minus,
-  ChevronDown, Sparkles, Edit3,
+  ChevronDown, Sparkles, Edit3, Trash2, X,
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -457,46 +457,140 @@ function MoodAnalytics({ analytics, loading }: {
   );
 }
 
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+
+function EditModal({ entry, onSave, onClose }: {
+  entry: JournalEntry;
+  onSave: (updated: JournalEntry) => void;
+  onClose: () => void;
+}) {
+  const [content, setContent]   = useState(entry.content);
+  const [mood, setMood]         = useState(entry.mood);
+  const [energy, setEnergy]     = useState(entry.energy);
+  const [saving, setSaving]     = useState(false);
+
+  async function handleSave() {
+    if (!content.trim()) return;
+    setSaving(true);
+    const res = await fetch(`/api/journal/${entry.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, mood, energy }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      onSave(updated);
+      onClose();
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/30 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        className="w-full max-w-lg bg-parchment rounded-3xl p-6 shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-semibold text-ink font-sans">
+            Edit — {format(parseISO(entry.date.slice(0, 10)), "EEE, d MMM")}
+          </p>
+          <button onClick={onClose} className="p-1 text-ink/30 hover:text-ink/60">
+            <X size={18} />
+          </button>
+        </div>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={5}
+          className="w-full resize-none outline-none font-serif text-base text-ink leading-relaxed bg-transparent placeholder:text-ink/25 mb-5"
+        />
+        <div className="space-y-4 mb-6">
+          <ScaleSelector label="Mood" value={mood} onChange={setMood} />
+          <ScaleSelector label="Energy" value={energy} onChange={setEnergy} />
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 rounded-2xl border border-mist text-sm font-sans text-ink/50">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!content.trim() || saving}
+            className="flex-1 py-3 rounded-2xl bg-ink text-cream text-sm font-semibold font-sans disabled:opacity-40"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Entries List ─────────────────────────────────────────────────────────────
 
-function EntryPreview({ entry }: { entry: JournalEntry }) {
-  const [expanded, setExpanded] = useState(false);
+function EntryPreview({ entry, onUpdate, onDelete }: {
+  entry: JournalEntry;
+  onUpdate: (updated: JournalEntry) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded]   = useState(false);
+  const [editing, setEditing]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
   const preview = entry.content.split("\n")[0].slice(0, 90);
   const hasMore = entry.content.length > preview.length || entry.content.includes("\n");
 
-  return (
-    <motion.div
-      layout
-      className="border-b border-mist/40 last:border-0 py-4 first:pt-0"
-    >
-      <button
-        onClick={() => hasMore && setExpanded((e) => !e)}
-        className="w-full text-left"
-      >
-        <div className="flex items-start gap-3">
-          {/* Mood dot */}
-          <div className="mt-1 shrink-0 flex flex-col items-center gap-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ background: MOOD_COLORS[entry.mood] }}
-            />
-          </div>
+  async function handleDelete() {
+    setDeleting(true);
+    const res = await fetch(`/api/journal/${entry.id}`, { method: "DELETE" });
+    if (res.ok) onDelete(entry.id);
+    setDeleting(false);
+  }
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-xs font-semibold text-ink font-sans">
-                {format(parseISO(entry.date.slice(0, 10)), "EEE, d MMM")}
-              </p>
-              <div className="flex gap-1 items-center ml-auto">
-                <span className="text-[10px] font-sans text-ink/30">
-                  {MOOD_EMOJI[entry.mood]} · ⚡{entry.energy}
-                </span>
-                {hasMore && (
-                  <ChevronDown
-                    size={12}
-                    className="text-ink/25 transition-transform"
-                    style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)" }}
+  return (
+    <>
+      <AnimatePresence>
+        {editing && (
+          <EditModal
+            entry={entry}
+            onSave={onUpdate}
+            onClose={() => setEditing(false)}
+          />
+        )}
+      </AnimatePresence>
+      <motion.div
+        layout
+        className="border-b border-mist/40 last:border-0 py-4 first:pt-0"
+      >
+        <button
+          onClick={() => hasMore && setExpanded((e) => !e)}
+          className="w-full text-left"
+        >
+          <div className="flex items-start gap-3">
+            {/* Mood dot */}
+            <div className="mt-1 shrink-0 flex flex-col items-center gap-1">
+              <div
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ background: MOOD_COLORS[entry.mood] }}
+              />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-xs font-semibold text-ink font-sans">
+                  {format(parseISO(entry.date.slice(0, 10)), "EEE, d MMM")}
+                </p>
+                <div className="flex gap-1 items-center ml-auto">
+                  <span className="text-[10px] font-sans text-ink/30">
+                    {MOOD_EMOJI[entry.mood]} · ⚡{entry.energy}
+                  </span>
+                  {hasMore && (
+                    <ChevronDown
+                      size={12}
+                      className="text-ink/25 transition-transform"
+                      style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)" }}
                   />
                 )}
               </div>
@@ -507,12 +601,31 @@ function EntryPreview({ entry }: { entry: JournalEntry }) {
           </div>
         </div>
       </button>
+
+      {/* Edit / Delete actions */}
+      <div className="flex items-center gap-3 mt-2 pl-[22px]">
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-1 text-[11px] text-ink/30 hover:text-ink/60 font-sans transition-colors"
+        >
+          <Edit3 size={11} /> Edit
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="flex items-center gap-1 text-[11px] text-ink/30 hover:text-terracotta font-sans transition-colors"
+        >
+          <Trash2 size={11} /> {deleting ? "Deleting…" : "Delete"}
+        </button>
+      </div>
     </motion.div>
+    </>
   );
 }
 
-function EntriesList({ entries, todayDate, loading }: {
+function EntriesList({ entries, setEntries, todayDate, loading }: {
   entries: JournalEntry[];
+  setEntries: React.Dispatch<React.SetStateAction<JournalEntry[]>>;
   todayDate: string;
   loading: boolean;
 }) {
@@ -556,7 +669,18 @@ function EntriesList({ entries, todayDate, loading }: {
           </div>
 
           <div className="bg-white rounded-2xl px-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)] mt-3">
-            {monthEntries.map((e) => <EntryPreview key={e.id} entry={e} />)}
+            {monthEntries.map((e) => (
+              <EntryPreview
+                key={e.id}
+                entry={e}
+                onUpdate={(updated) =>
+                  setEntries((prev) => prev.map((x) => x.id === updated.id ? updated : x))
+                }
+                onDelete={(id) =>
+                  setEntries((prev) => prev.filter((x) => x.id !== id))
+                }
+              />
+            ))}
           </div>
         </div>
       ))}
@@ -624,6 +748,7 @@ export default function JournalPage() {
         </p>
         <EntriesList
           entries={entries}
+          setEntries={setEntries}
           todayDate={todayDate}
           loading={loading}
         />
