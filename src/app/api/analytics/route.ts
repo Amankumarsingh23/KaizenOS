@@ -128,25 +128,32 @@ export async function GET() {
 
   // ── MONTHLY ───────────────────────────────────────────────────────────────
 
-  const targetsVsActual = targets.map((t) => ({
-    category: t.category.replace(/_/g, " "),
-    target: t.targetValue,
-    actual: t.currentValue,
-  }));
-
-  // Running totals for key categories this month
   const monthSessions = sessions90.filter((s) => new Date(s.startTime) >= monthStart);
   const dom = now.getDate();
+
+  // Show all categories that have either a target OR actual sessions this month
+  const targetsVsActual = CATEGORIES
+    .map((cat) => {
+      const t = targets.find((x) => x.category === cat);
+      const sessionCount = monthSessions.filter((s) => s.category === cat).length;
+      return {
+        category: cat.replace(/_/g, " "),
+        target:   t?.targetValue ?? 0,
+        actual:   t ? t.currentValue : sessionCount,
+      };
+    })
+    .filter((d) => d.actual > 0 || d.target > 0);
+
+  // Cumulative running totals for ALL categories with sessions this month
   const cumulative = Array.from({ length: dom }, (_, i) => {
     const d = new Date(monthStart);
     d.setDate(i + 1);
     const soFar = monthSessions.filter((s) => new Date(s.startTime) <= d);
-    return {
-      date: format(d, "d"),
-      DSA:            soFar.filter((s) => s.category === "DSA").length,
-      GD:             soFar.filter((s) => s.category === "GD").length,
-      MOCK_INTERVIEW: soFar.filter((s) => s.category === "MOCK_INTERVIEW").length,
-    };
+    const row: Record<string, string | number> = { date: format(d, "d") };
+    for (const cat of CATEGORIES) {
+      row[cat] = soFar.filter((s) => s.category === cat).length;
+    }
+    return row;
   });
 
   // ── TRENDS ────────────────────────────────────────────────────────────────

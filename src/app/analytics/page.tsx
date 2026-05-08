@@ -42,7 +42,7 @@ interface AnalyticsData {
   };
   monthly: {
     targetsVsActual: { category: string; target: number; actual: number }[];
-    cumulative: { date: string; DSA: number; GD: number; MOCK_INTERVIEW: number }[];
+    cumulative: Record<string, string | number>[];
   };
   trends: {
     durationTrend: { week: string; avgMinutes: number; avgRating: number }[];
@@ -393,21 +393,34 @@ function WeeklyTab({ data, loading }: {
 
 // ─── Monthly Tab ──────────────────────────────────────────────────────────────
 
+const ALL_CATS = [
+  "DSA","GD","MOCK_INTERVIEW","PROJECT_WORK",
+  "CURRENT_AFFAIRS","JAPANESE","COMMUNICATION","READING",
+] as const;
+
 function MonthlyTab({ data, loading }: {
   data: AnalyticsData["monthly"] | undefined;
   loading: boolean;
 }) {
-  const isEmpty = !loading && !data?.targetsVsActual.some((d) => d.target > 0);
+  const noTargets = !loading && !data?.targetsVsActual.length;
+
+  // Determine which categories actually have session data in cumulative
+  const activeCats = !data?.cumulative.length
+    ? []
+    : ALL_CATS.filter((cat) =>
+        data.cumulative.some((row) => Number(row[cat] ?? 0) > 0)
+      );
+  const noCumulative = !loading && activeCats.length === 0;
 
   return (
     <div className="space-y-4">
-      {/* Targets vs actual */}
+      {/* Targets vs actual — shows all categories with sessions or targets */}
       <ChartWrapper
         title="Targets vs Actual"
-        subtitle="This month"
+        subtitle="This month · set targets in Settings to see goals"
         loading={loading}
-        empty={isEmpty}
-        emptyMessage="Set monthly targets in Settings → Targets"
+        empty={noTargets}
+        emptyMessage="No sessions logged this month yet"
         height={220}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -420,25 +433,23 @@ function MonthlyTab({ data, loading }: {
             <XAxis type="number" tick={TICK} tickLine={false} axisLine={false} />
             <YAxis dataKey="category" type="category"
               tick={{ fontSize: 9, fill: "#8B8075", fontFamily: "var(--font-dm-sans)" }}
-              tickLine={false} axisLine={false} width={60}
+              tickLine={false} axisLine={false} width={72}
             />
             <Tooltip content={(p) => <WarmTooltip {...p} />} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-dm-sans)" }} />
-            <Bar dataKey="target" name="Target" fill={PALETTE.mist}     radius={[0, 4, 4, 0]} />
-            <Bar dataKey="actual" name="Actual" fill={PALETTE.sage}     radius={[0, 4, 4, 0]} />
+            <Bar dataKey="target" name="Target" fill={PALETTE.mist} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="actual" name="Actual" fill={PALETTE.sage} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartWrapper>
 
-      {/* Cumulative DSA / GD / Mock this month */}
+      {/* Cumulative — all categories that have any session this month */}
       <ChartWrapper
         title="Cumulative Progress"
-        subtitle="Running total this month · DSA / GD / Mock"
+        subtitle="Running session count this month"
         loading={loading}
-        empty={!loading && !data?.cumulative.some(
-          (d) => d.DSA > 0 || d.GD > 0 || d.MOCK_INTERVIEW > 0
-        )}
-        emptyMessage="No DSA, GD or Mock sessions logged this month"
+        empty={noCumulative}
+        emptyMessage="Log sessions this month to see the trend"
         height={200}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -447,28 +458,30 @@ function MonthlyTab({ data, loading }: {
             margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
           >
             <defs>
-              {[
-                { id: "dsa",  color: CAT_COLORS.DSA },
-                { id: "gd",   color: CAT_COLORS.GD  },
-                { id: "mock", color: CAT_COLORS.MOCK_INTERVIEW },
-              ].map(({ id, color }) => (
-                <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={color} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={color} stopOpacity={0}   />
+              {activeCats.map((cat) => (
+                <linearGradient key={cat} id={`grad-${cat}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={CAT_COLORS[cat]} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={CAT_COLORS[cat]} stopOpacity={0}   />
                 </linearGradient>
               ))}
             </defs>
             <CartesianGrid {...GRID_PROPS} />
             <XAxis dataKey="date" tick={TICK} tickLine={false} axisLine={false} interval={4} />
-            <YAxis tick={TICK} tickLine={false} axisLine={false} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip content={(p) => <WarmTooltip {...p} />} />
             <Legend wrapperStyle={{ fontSize: 10, fontFamily: "var(--font-dm-sans)" }} />
-            <Area type="monotone" dataKey="DSA" name="DSA"
-              stroke={CAT_COLORS.DSA} fill="url(#dsa)" strokeWidth={2} dot={false} />
-            <Area type="monotone" dataKey="GD"  name="GD"
-              stroke={CAT_COLORS.GD}  fill="url(#gd)"  strokeWidth={2} dot={false} />
-            <Area type="monotone" dataKey="MOCK_INTERVIEW" name="Mock"
-              stroke={CAT_COLORS.MOCK_INTERVIEW} fill="url(#mock)" strokeWidth={2} dot={false} />
+            {activeCats.map((cat) => (
+              <Area
+                key={cat}
+                type="monotone"
+                dataKey={cat}
+                name={cat.replace(/_/g, " ")}
+                stroke={CAT_COLORS[cat]}
+                fill={`url(#grad-${cat})`}
+                strokeWidth={2}
+                dot={false}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </ChartWrapper>
