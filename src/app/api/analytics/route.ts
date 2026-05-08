@@ -67,10 +67,20 @@ export async function GET() {
   }));
 
   // 3. Radar — % of monthly target achieved
+  // When no target is set, fall back to a sensible default so the wheel is always visible
+  const DEFAULT_TARGETS: Record<string, number> = {
+    DSA: 30, GD: 20, MOCK_INTERVIEW: 12, PROJECT_WORK: 20,
+    CURRENT_AFFAIRS: 20, JAPANESE: 15, COMMUNICATION: 10, READING: 8,
+  };
   const radarData = CATEGORIES.map((cat) => {
-    const t = targets.find((x) => x.category === cat);
-    const value = t && t.targetValue > 0
-      ? Math.min(100, Math.round((t.currentValue / t.targetValue) * 100))
+    const t       = targets.find((x) => x.category === cat);
+    const monthCount = sessions90
+      .filter((s) => new Date(s.startTime) >= monthStart && s.category === cat)
+      .length;
+    const targetVal = t?.targetValue  ?? DEFAULT_TARGETS[cat] ?? 20;
+    const actualVal = t ? t.currentValue : monthCount;
+    const value = targetVal > 0
+      ? Math.min(100, Math.round((actualVal / targetVal) * 100))
       : 0;
     return { category: cat, value };
   });
