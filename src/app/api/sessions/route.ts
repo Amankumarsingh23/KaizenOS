@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserId } from "@/lib/getUser";
 import { db } from "@/lib/db";
+import { generateDailyReport } from "@/lib/ai/generateDailyReport";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -74,6 +75,13 @@ export async function POST(req: NextRequest) {
     where: { userId, category, month: now.getMonth() + 1, year: now.getFullYear() },
     data: { currentValue: { increment: 1 } },
   });
+
+  // Auto-regenerate today's AI report in the background (fire-and-forget)
+  if (process.env.ANTHROPIC_API_KEY) {
+    generateDailyReport(userId).catch((err: unknown) => {
+      console.error("[auto-report]", err instanceof Error ? err.message : err);
+    });
+  }
 
   return NextResponse.json(studySession, { status: 201 });
 }

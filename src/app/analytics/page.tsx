@@ -158,6 +158,7 @@ function OverviewTab({ data, loading }: {
         subtitle="Last 30 days · avg line shown"
         loading={loading}
         empty={isEmpty}
+        emptyMessage="No reports yet — log a session to auto-generate"
         height={200}
         action={
           data?.avgScore ? (
@@ -406,6 +407,7 @@ function MonthlyTab({ data, loading }: {
         subtitle="This month"
         loading={loading}
         empty={isEmpty}
+        emptyMessage="Set monthly targets in Settings → Targets"
         height={220}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -431,9 +433,12 @@ function MonthlyTab({ data, loading }: {
       {/* Cumulative DSA / GD / Mock this month */}
       <ChartWrapper
         title="Cumulative Progress"
-        subtitle="Running total this month"
+        subtitle="Running total this month · DSA / GD / Mock"
         loading={loading}
-        empty={!loading && !data?.cumulative.length}
+        empty={!loading && !data?.cumulative.some(
+          (d) => d.DSA > 0 || d.GD > 0 || d.MOCK_INTERVIEW > 0
+        )}
+        emptyMessage="No DSA, GD or Mock sessions logged this month"
         height={200}
       >
         <ResponsiveContainer width="100%" height="100%">
