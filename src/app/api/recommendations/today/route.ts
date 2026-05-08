@@ -32,6 +32,7 @@ export async function GET() {
     }),
     db.streak.findMany({ where: { userId } }),
     db.gDTopic.findMany({
+      where: { userId },
       orderBy: [{ practiced: "asc" }, { practiceCount: "asc" }],
       take: 50,
     }),

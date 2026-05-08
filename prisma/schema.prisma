@@ -59,8 +59,10 @@ model User {
   projects          Project[]
   milestones        Milestone[]
   journalEntries    JournalEntry[]
-  pushSubscriptions PushSubscription[]
-  settings          UserSettings?
+  pushSubscriptions  PushSubscription[]
+  settings           UserSettings?
+  gdTopics           GDTopic[]
+  interviewQuestions InterviewQuestion[]
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
@@ -252,22 +254,28 @@ model PushSubscription {
 
 model GDTopic {
   id              String          @id @default(cuid())
+  userId          String?
   category        GDTopicCategory
   topic           String
   practiced       Boolean         @default(false)
   practiceCount   Int             @default(0)
   lastPracticedAt DateTime?
   bestScore       Int?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ─── Interview Question Bank ──────────────────────────────────────────────────
 
 model InterviewQuestion {
   id              String        @id @default(cuid())
+  userId          String?
   type            InterviewType
   question        String
   preparedAnswer  String?
   practiced       Boolean       @default(false)
   practiceCount   Int           @default(0)
   lastPracticedAt DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

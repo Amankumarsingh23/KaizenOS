@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getUserId } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function PATCH(
@@ -9,21 +10,21 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = await getUserId(session);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json();
 
   const question = await db.interviewQuestion.findUnique({ where: { id } });
-  if (!question) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!question || question.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   if (body.action === "practice") {
     const updated = await db.interviewQuestion.update({
       where: { id },
-      data: {
-        practiced:      true,
-        practiceCount:  { increment: 1 },
-        lastPracticedAt: new Date(),
-      },
+      data: { practiced: true, practiceCount: { increment: 1 }, lastPracticedAt: new Date() },
     });
     return NextResponse.json(updated);
   }
