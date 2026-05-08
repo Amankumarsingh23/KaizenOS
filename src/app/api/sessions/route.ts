@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserId } from "@/lib/getUser";
@@ -75,14 +75,18 @@ export async function POST(req: NextRequest) {
     data: { currentValue: { increment: 1 } },
   });
 
-  // Auto-regenerate today's AI report in the background (dynamic import avoids
-  // breaking this route when ANTHROPIC_API_KEY is absent at module load time)
+  // Use next/server `after` so Vercel keeps the function alive after response is sent
   if (process.env.ANTHROPIC_API_KEY) {
-    import("@/lib/ai/generateDailyReport")
-      .then(({ generateDailyReport }) => generateDailyReport(userId))
-      .catch((err: unknown) => {
-        console.error("[auto-report]", err instanceof Error ? err.message : err);
-      });
+    const uid = userId;
+    after(async () => {
+      try {
+        const { generateDailyReport } = await import("@/lib/ai/generateDailyReport");
+        await generateDailyReport(uid);
+        console.log("[auto-report] done for", uid);
+      } catch (err: unknown) {
+        console.error("[auto-report] failed:", err instanceof Error ? err.message : err);
+      }
+    });
   }
 
   return NextResponse.json(studySession, { status: 201 });
