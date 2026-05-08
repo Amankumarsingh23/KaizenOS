@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Use next/server `after` so Vercel keeps the function alive after response is sent
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (process.env.GROQ_API_KEY) {
     const uid = userId;
     after(async () => {
       try {

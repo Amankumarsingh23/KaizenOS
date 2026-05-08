@@ -1,30 +1,20 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 
 export async function GET() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return NextResponse.json({ error: "GROQ_API_KEY not set" }, { status: 500 });
 
-  const client = new Anthropic({ apiKey: key });
-
+  const client = new Groq({ apiKey: key });
   try {
-    const res = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+    const res = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       max_tokens: 16,
       messages: [{ role: "user", content: "Say hi" }],
     });
-    return NextResponse.json({
-      ok: true,
-      model: res.model,
-      text: res.content[0].type === "text" ? res.content[0].text : null,
-    });
+    return NextResponse.json({ ok: true, text: res.choices[0]?.message?.content });
   } catch (err: unknown) {
-    const e = err as { status?: number; message?: string; error?: unknown };
-    return NextResponse.json({
-      ok: false,
-      status: e.status,
-      message: e.message,
-      detail: e.error,
-    }, { status: 500 });
+    const e = err as { status?: number; message?: string };
+    return NextResponse.json({ ok: false, status: e.status, message: e.message }, { status: 500 });
   }
 }

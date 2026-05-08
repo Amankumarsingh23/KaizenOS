@@ -1,8 +1,8 @@
-import { anthropic } from "@/lib/ai";
+import { groq } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { format, subDays, startOfDay } from "date-fns";
 
-const MODEL = "claude-3-5-sonnet-20241022";
+const MODEL = "llama-3.3-70b-versatile";
 
 const CATEGORIES = [
   "DSA","GD","MOCK_INTERVIEW","PROJECT_WORK",
@@ -157,8 +157,8 @@ Return ONLY a JSON object with exactly these keys. No markdown, no explanation, 
 // ─── Report generator ─────────────────────────────────────────────────────────
 
 export async function generateDailyReport(userId: string): Promise<ReportOutput> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set");
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not set");
   }
 
   const ctx = await gatherContext(userId);
@@ -182,18 +182,18 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
 
   const prompt = buildPrompt(ctx);
 
-  // Call Claude
+  // Call Groq (OpenAI-compatible)
   let rawText = "";
   try {
-    const response = await anthropic.messages.create({
+    const response = await groq.chat.completions.create({
       model: MODEL,
       max_tokens: 1024,
       temperature: 0.3,
       messages: [{ role: "user", content: prompt }],
     });
-    rawText = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    rawText = response.choices[0]?.message?.content?.trim() ?? "";
   } catch (err) {
-    throw new Error(`Claude API error: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Groq API error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Parse JSON (strip any markdown fences if present)
