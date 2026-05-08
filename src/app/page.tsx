@@ -8,7 +8,7 @@ import {
   Flame, Timer, ChevronRight, Code2, Users, Briefcase,
   FolderOpen, Globe, Languages, Mic, BookOpen,
   Lightbulb, Target, CalendarCheck, BarChart2,
-  Star, TrendingUp, Zap, AlertTriangle, Clock,
+  Star, TrendingUp, Zap, AlertTriangle, Clock, Play,
 } from "lucide-react";
 import type { Recommendations, PlanItem } from "@/lib/ai/recommendations";
 
@@ -250,6 +250,32 @@ function TimerShortcut() {
   );
 }
 
+// ─── Session metadata helpers ─────────────────────────────────────────────────
+
+function parseSessionMeta(s: StudySession): { primary?: string; chips?: string[] } | null {
+  if (!s.metadata) return null;
+  try {
+    const m = JSON.parse(s.metadata) as Record<string, string>;
+    switch (s.category) {
+      case "DSA":            return { primary: m.problem, chips: [m.platform, m.difficulty].filter(Boolean) };
+      case "GD":             return { primary: m.topic,   chips: [m.format].filter(Boolean) };
+      case "MOCK_INTERVIEW": return { primary: m.type,    chips: [m.company].filter(Boolean) };
+      case "PROJECT_WORK":   return { primary: m.project, chips: [m.task].filter(Boolean) };
+      case "READING":        return { primary: m.title,   chips: [m.author].filter(Boolean) };
+      case "JAPANESE":       return { primary: m.lesson,  chips: [m.type].filter(Boolean) };
+      case "COMMUNICATION":  return { primary: m.topic,   chips: [m.type].filter(Boolean) };
+      case "CURRENT_AFFAIRS":return { primary: m.topic,   chips: [m.source].filter(Boolean) };
+      default:               return null;
+    }
+  } catch { return null; }
+}
+
+const DIFF_COLOR: Record<string, string> = {
+  Easy:   "bg-sage/15 text-sage",
+  Medium: "bg-gold/15 text-amber-700",
+  Hard:   "bg-terracotta/15 text-terracotta",
+};
+
 // ─── Section: Today's Sessions ────────────────────────────────────────────────
 
 function SessionTimeline({ sessions, loading }: {
@@ -327,6 +353,29 @@ function SessionTimeline({ sessions, loading }: {
                       ))}
                     </div>
                   </div>
+                  {(() => {
+                    const meta = parseSessionMeta(s);
+                    if (!meta || (!meta.primary && !meta.chips?.length)) return null;
+                    return (
+                      <div className="mb-1">
+                        {meta.primary && (
+                          <p className="text-xs font-semibold text-ink/75 font-sans leading-snug">{meta.primary}</p>
+                        )}
+                        {meta.chips?.length ? (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {meta.chips.map((chip) => (
+                              <span
+                                key={chip}
+                                className={`text-[10px] rounded-full px-2 py-0.5 font-sans ${DIFF_COLOR[chip] ?? "bg-mist/70 text-ink/45"}`}
+                              >
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   {s.notes && s.notes !== "—" && (
                     <p className="text-xs text-ink/50 font-sans leading-relaxed line-clamp-2">
                       {s.notes}
@@ -514,6 +563,13 @@ const BADGE_STYLE: Record<PlanItem["badge"], { pill: string; label: string }> = 
 };
 
 function MorningPlanCard({ recs, loading }: { recs: Recommendations | null; loading: boolean }) {
+  const { status, startWithCategory } = useTimer();
+  const router = useRouter();
+
+  function quickStart(cat: Category) {
+    if (status === "idle") startWithCategory(cat);
+    router.push("/timer");
+  }
   if (loading) {
     return (
       <Card className="mb-5">
@@ -573,6 +629,14 @@ function MorningPlanCard({ recs, loading }: { recs: Recommendations | null; load
                   <p className="text-sm text-ink font-sans leading-snug">{item.action}</p>
                   <p className="text-[11px] text-ink/40 font-sans mt-0.5">{item.reason}</p>
                 </div>
+                <motion.button
+                  onClick={() => quickStart(item.category)}
+                  whileTap={{ scale: 0.9 }}
+                  className="shrink-0 w-7 h-7 rounded-full bg-sage/15 hover:bg-sage/25 flex items-center justify-center mt-0.5 transition-colors"
+                  title={`Start ${item.category}`}
+                >
+                  <Play size={12} className="text-sage" fill="currentColor" />
+                </motion.button>
               </div>
             );
           })}

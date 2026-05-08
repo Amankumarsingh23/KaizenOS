@@ -36,6 +36,7 @@ interface TimerContextValue {
   startTime: Date | null;
   selectCategory: (cat: Category) => void;
   start: () => void;
+  startWithCategory: (cat: Category) => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -181,6 +182,19 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, status]);
 
+  const startWithCategory = useCallback((cat: Category) => {
+    if (status !== "idle") return;
+    const now = Date.now();
+    baseElapsed.current   = 0;
+    lastStartTime.current = now;
+    setCategory(cat);
+    setElapsed(0);
+    setStartTime(new Date(now));
+    setStatus("running");
+    startWorker();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   const pause = useCallback(() => {
     if (status !== "running") return;
     stopWorker();
@@ -259,7 +273,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   return (
     <TimerContext.Provider value={{
       status, elapsed, category, startTime,
-      selectCategory, start, pause, resume, stop, reset, saveSession,
+      selectCategory, start, startWithCategory, pause, resume, stop, reset, saveSession,
     }}>
       {children}
     </TimerContext.Provider>

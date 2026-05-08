@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame } from "lucide-react";
+import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const navItems = [
   { href: "/",          label: "Today",     Icon: Target,     desc: "Dashboard"      },
   { href: "/timer",     label: "Log",       Icon: Timer,      desc: "Study timer"    },
-  { href: "/analytics", label: "Analytics", Icon: BarChart2,  desc: "Progress"       },
-  { href: "/topics",    label: "Topics",    Icon: BookOpen,   desc: "GD & Interview" },
+  { href: "/analytics", label: "Analytics", Icon: BarChart2,    desc: "Progress"       },
+  { href: "/weekly",    label: "Weekly",    Icon: CalendarDays, desc: "Week review"    },
+  { href: "/topics",    label: "Topics",    Icon: BookOpen,     desc: "GD & Interview" },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen, desc: "Milestones"     },
   { href: "/streaks",   label: "Streaks",   Icon: Flame,      desc: "Consistency"    },
   { href: "/settings",  label: "Settings",  Icon: Settings,   desc: "Preferences"    },
