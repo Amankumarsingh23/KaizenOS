@@ -2,7 +2,7 @@ import { anthropic } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { format, subDays, startOfDay } from "date-fns";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-3-5-sonnet-20241022";
 
 const CATEGORIES = [
   "DSA","GD","MOCK_INTERVIEW","PROJECT_WORK",
