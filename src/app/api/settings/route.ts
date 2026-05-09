@@ -38,6 +38,7 @@ export async function PUT(req: NextRequest) {
     morningTime, eveningTime,
     weeklySchedule,
     githubUsername,
+    cfHandle,
     isPublic,
     name, // profile update
   } = body;
@@ -51,6 +52,7 @@ export async function PUT(req: NextRequest) {
   if (eveningTime    !== undefined) settingsData.eveningTime    = eveningTime;
   if (weeklySchedule !== undefined) settingsData.weeklySchedule = JSON.stringify(weeklySchedule);
   if (githubUsername !== undefined) settingsData.githubUsername = githubUsername;
+  if (cfHandle       !== undefined) settingsData.cfHandle       = cfHandle?.trim() || null;
   if (isPublic       !== undefined) settingsData.isPublic       = Boolean(isPublic);
 
   const [settings] = await Promise.all([

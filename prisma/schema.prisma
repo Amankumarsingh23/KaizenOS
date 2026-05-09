@@ -97,6 +97,7 @@ model User {
   dsaSkills          DSASkill[]
   friendships        Friendship[] @relation("AddedFriends")
   followedBy         Friendship[] @relation("AddedByUser")
+  contestReminders   ContestReminder[]
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ model UserSettings {
   eveningTime      String  @default("21:00")
   weeklySchedule   String?  // JSON: { "1": ["DSA","GD"], "2": [...], ... }
   githubUsername   String?
+  cfHandle         String?
   isPublic         Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -132,6 +134,23 @@ model DSASkill {
 }
 
 // ─── Friendships ──────────────────────────────────────────────────────────────
+
+// ─── Contest Reminders ────────────────────────────────────────────────────────
+
+model ContestReminder {
+  id          String   @id @default(cuid())
+  userId      String
+  contestId   Int
+  contestName String
+  startTime   DateTime
+  remindAt    DateTime
+  notified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contestId])
+}
 
 model Friendship {
   id        String   @id @default(cuid())

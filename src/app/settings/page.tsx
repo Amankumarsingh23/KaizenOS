@@ -102,6 +102,7 @@ function ProfileSection() {
   const { user } = useCurrentUser();
   const [name, setName]       = useState(user?.name ?? "");
   const [github, setGH]       = useState("");
+  const [cfHandle, setCF]     = useState("");
   const [apiKey, setKey]      = useState("");
   const [showKey, setShowKey] = useState(false);
   const [isPublic, setPublic] = useState(false);
@@ -113,6 +114,7 @@ function ProfileSection() {
     setKey(saved);
     fetch("/api/settings").then(r => r.json()).then(d => {
       if (d.githubUsername) setGH(d.githubUsername);
+      if (d.cfHandle)       setCF(d.cfHandle);
       if (d.isPublic !== undefined) setPublic(d.isPublic);
     }).catch(() => {});
   }, [user]);
@@ -122,7 +124,7 @@ function ProfileSection() {
       await fetch("/api/settings", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ name, githubUsername: github, isPublic }),
+        body:    JSON.stringify({ name, githubUsername: github, cfHandle, isPublic }),
       });
       if (apiKey.trim()) localStorage.setItem("anthropic-api-key", apiKey.trim());
     });
@@ -147,6 +149,15 @@ function ProfileSection() {
           <label className="block text-xs text-ink/40 font-sans mb-1.5">GitHub username</label>
           <input value={github} onChange={e => setGH(e.target.value)}
             placeholder="e.g. octocat"
+            className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-sans text-ink placeholder:text-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30" />
+        </div>
+        <div>
+          <label className="block text-xs text-ink/40 font-sans mb-1.5">
+            Codeforces handle
+            <span className="text-ink/25 ml-1">(for rating history & contest tracking)</span>
+          </label>
+          <input value={cfHandle} onChange={e => setCF(e.target.value)}
+            placeholder="e.g. tourist"
             className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-sans text-ink placeholder:text-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30" />
         </div>
         <div>

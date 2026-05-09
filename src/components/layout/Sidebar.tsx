@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame, CalendarDays, Briefcase, Trophy, Code2, Scroll } from "lucide-react";
+import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame, CalendarDays, Briefcase, Trophy, Code2, Scroll, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/placement",  label: "Placement",  Icon: Briefcase,    desc: "Job pipeline"   },
   { href: "/skills",     label: "Skills",     Icon: Code2,        desc: "DSA skill map"  },
   { href: "/timeline",   label: "Timeline",   Icon: Scroll,       desc: "Your journey"   },
+  { href: "/contests",   label: "Contests",   Icon: Swords,       desc: "CF contests"    },
   { href: "/leaderboard",label: "Board",      Icon: Trophy,       desc: "Accountability" },
   { href: "/topics",    label: "Topics",    Icon: BookOpen,     desc: "GD & Interview" },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen, desc: "Milestones"     },
