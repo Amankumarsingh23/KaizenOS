@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
 import {
   CheckCircle2, Circle, Clock, ChevronLeft, Plus,
-  Edit3, X, Timer, Trash2, ArrowRight,
+  Edit3, X, Timer, Trash2, ArrowRight, GitBranch, ExternalLink,
 } from "lucide-react";
 import { AppShell }    from "@/components/layout/AppShell";
 import { Badge }       from "@/components/ui/Badge";
@@ -43,8 +43,15 @@ interface Project {
   name:           string;
   description:    string;
   color:          string;
+  repoUrl:        string | null;
   milestones:     Milestone[];
   recentSessions: StudySession[];
+}
+interface RepoData {
+  repo: string; stars: number; forks: number; language: string | null;
+  description: string | null; htmlUrl: string; commitsThisWeek: number;
+  lastCommitAt: string | null;
+  recentCommits: { sha: string; message: string; date: string; url: string }[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -360,11 +367,20 @@ export default function ProjectDetailPage({
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [repoData, setRepoData] = useState<RepoData | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
       .then((r) => r.json())
-      .then(setProject)
+      .then((p: Project) => {
+        setProject(p);
+        if (p.repoUrl) {
+          fetch(`/api/github/repo?repo=${encodeURIComponent(p.repoUrl)}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.repo) setRepoData(d); })
+            .catch(console.error);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
@@ -446,6 +462,52 @@ export default function ProjectDetailPage({
           <ScoreCircle score={completion} size="md" label="done" />
         </div>
       </div>
+
+      {/* GitHub Repo Activity */}
+      {repoData && (
+        <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)] mb-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <GitBranch size={15} className="text-ink/50" />
+              <p className="text-sm font-semibold text-ink font-sans">GitHub Activity</p>
+            </div>
+            <a href={repoData.htmlUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-ink/30 hover:text-ink/60 font-sans transition-colors">
+              {repoData.repo.split("/")[1] ?? repoData.repo}
+              <ExternalLink size={10} />
+            </a>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[
+              { label: "This Week",  value: repoData.commitsThisWeek, color: "text-sage"   },
+              { label: "⭐ Stars",   value: repoData.stars,           color: "text-gold"   },
+              { label: "Language",   value: repoData.language ?? "—", color: "text-blue-500"},
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-cream rounded-xl p-3 text-center">
+                <p className={`font-serif text-xl font-semibold ${color}`}>{value}</p>
+                <p className="text-[10px] text-ink/35 font-sans mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+          {repoData.lastCommitAt && (
+            <p className="text-[11px] text-ink/35 font-sans mb-3">
+              Last commit: {new Date(repoData.lastCommitAt).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}
+            </p>
+          )}
+          <div className="space-y-1.5">
+            {repoData.recentCommits.slice(0, 6).map((c) => (
+              <a key={c.sha} href={c.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2.5 group py-1.5 border-b border-mist/30 last:border-0 hover:bg-mist/10 rounded px-1 transition-colors">
+                <span className="font-mono text-[10px] text-ink/25 shrink-0 w-12">{c.sha}</span>
+                <span className="text-xs font-sans text-ink/60 flex-1 truncate group-hover:text-ink/80 transition-colors">{c.message}</span>
+                <span className="text-[10px] text-ink/25 font-sans shrink-0">
+                  {new Date(c.date).toLocaleDateString("en-IN", { day:"numeric", month:"short" })}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Gantt */}
       <div className="mb-5">

@@ -31,6 +31,16 @@ interface CFProfile {
     oldRating: number; newRating: number; delta: number; date: string;
   }[];
 }
+interface LCStats {
+  handle: string; ranking: number; totalSolved: number; totalSubmissions: number;
+  acceptanceRate: number; streak: number; totalActiveDays: number;
+  easy:   { solved: number; submissions: number };
+  medium: { solved: number; submissions: number };
+  hard:   { solved: number; submissions: number };
+  heatmap: { date: string; count: number; dow: number }[];
+  recentAC: { id: string; title: string; titleSlug: string; date: string }[];
+}
+
 interface CFProblemStats {
   handle: string; totalSubmissions: number; totalSolved: number;
   acceptanceRate: number; currentStreak: number;
@@ -297,6 +307,136 @@ function CFProblemStatsSection({ stats }: { stats: CFProblemStats }) {
   );
 }
 
+// ─── LeetCode Stats Section ───────────────────────────────────────────────────
+
+function LCStatsSection({ stats }: { stats: LCStats }) {
+  const difficulties = [
+    { label: "Easy",   color: "#22c55e", ...stats.easy   },
+    { label: "Medium", color: "#f59e0b", ...stats.medium },
+    { label: "Hard",   color: "#ef4444", ...stats.hard   },
+  ];
+
+  function heatColor(count: number) {
+    if (count === 0) return "#EDE9E0";
+    if (count <= 2)  return "#FBD38D";
+    if (count <= 5)  return "#F59E0B";
+    if (count <= 10) return "#D97706";
+    return "#92400E";
+  }
+
+  const firstDow = stats.heatmap[0]?.dow ?? 0;
+  const padded = [...Array(firstDow).fill(null), ...stats.heatmap];
+  const weeks: (typeof stats.heatmap[0] | null)[][] = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+
+  return (
+    <div className="space-y-4 mb-6">
+      {/* Profile card */}
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-mono text-sm font-bold text-ink">{stats.handle}</p>
+              <a href={`https://leetcode.com/${stats.handle}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={12} className="text-ink/30" />
+              </a>
+            </div>
+            <p className="font-serif text-3xl font-bold text-amber-600 mt-1">{stats.totalSolved}</p>
+            <p className="text-sm font-sans text-amber-700">Problems Solved</p>
+          </div>
+          <div className="text-right space-y-2">
+            <div>
+              <p className="text-[10px] text-ink/40 font-sans">Ranking</p>
+              <p className="text-lg font-serif font-semibold text-ink">#{stats.ranking.toLocaleString("en-IN")}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-ink/40 font-sans">Acceptance</p>
+              <p className="text-lg font-serif font-semibold text-sage">{stats.acceptanceRate}%</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-4 mt-4 pt-4 border-t border-amber-200">
+          {[
+            { label: "Streak",       value: `${stats.streak}d`,          color: "text-amber-600" },
+            { label: "Active Days",  value: stats.totalActiveDays,        color: "text-ink"       },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="text-center">
+              <p className={`font-serif text-xl font-semibold ${color}`}>{value}</p>
+              <p className="text-[10px] text-ink/40 font-sans">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Difficulty breakdown */}
+      <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+        <p className="text-sm font-semibold text-ink font-sans mb-4">By Difficulty</p>
+        <div className="space-y-3">
+          {difficulties.map((d) => (
+            <div key={d.label} className="flex items-center gap-3">
+              <span className="text-xs font-semibold font-sans w-14 shrink-0" style={{ color: d.color }}>
+                {d.label}
+              </span>
+              <div className="flex-1 h-5 bg-mist/40 rounded-lg overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${stats.totalSolved > 0 ? (d.solved / stats.totalSolved) * 100 : 0}%` }}
+                  transition={{ duration: 0.6 }}
+                  className="h-full rounded-lg flex items-center px-2"
+                  style={{ background: d.color, opacity: 0.85 }}
+                >
+                  <span className="text-[9px] text-white font-semibold">{d.solved}</span>
+                </motion.div>
+              </div>
+              <span className="text-[10px] font-mono text-ink/30 w-10 text-right shrink-0">
+                {d.submissions > 0 ? Math.round((d.solved / d.submissions) * 100) : 0}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 30-day heatmap */}
+      <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+        <p className="text-sm font-semibold text-ink font-sans mb-3">Activity <span className="text-[11px] font-normal text-ink/35">last 30 days</span></p>
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col gap-1 shrink-0">
+              {Array.from({ length: 7 }, (_, di) => {
+                const cell = week[di] ?? null;
+                return (
+                  <div key={di} className="w-3 h-3 rounded-sm"
+                    style={{ background: cell ? heatColor(cell.count) : "#F5F0E8" }}
+                    title={cell ? `${cell.date}: ${cell.count}` : ""} />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent AC */}
+      {stats.recentAC.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+          <p className="text-sm font-semibold text-ink font-sans mb-3">Recent Accepted</p>
+          <div className="space-y-1.5">
+            {stats.recentAC.map((s) => (
+              <a key={s.id} href={`https://leetcode.com/problems/${s.titleSlug}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 py-1.5 border-b border-mist/30 last:border-0 hover:bg-mist/10 rounded px-1 transition-colors group">
+                <CheckCircle2 size={11} className="text-sage/50 shrink-0" />
+                <span className="text-xs font-sans text-ink/70 flex-1 group-hover:text-ink/90 transition-colors">{s.title}</span>
+                <span className="text-[10px] text-ink/25 font-sans shrink-0">
+                  {new Date(s.date).toLocaleDateString("en-IN", { day:"numeric", month:"short" })}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Contest Card ─────────────────────────────────────────────────────────────
 
 function ContestCard({ contest, onToggleReminder }: {
@@ -478,14 +618,18 @@ function CFProfileSection({ profile }: { profile: CFProfile }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContestsPage() {
-  const [contests, setContests]       = useState<Contest[]>([]);
-  const [profile, setProfile]         = useState<CFProfile | null>(null);
+  const [contests, setContests]         = useState<Contest[]>([]);
+  const [profile, setProfile]           = useState<CFProfile | null>(null);
   const [problemStats, setProblemStats] = useState<CFProblemStats | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [profileLoading, setPL]       = useState(true);
-  const [statsLoading, setSL]         = useState(true);
-  const [noHandle, setNoHandle]       = useState(false);
-  const [refreshing, setRefreshing]   = useState(false);
+  const [lcStats, setLcStats]           = useState<LCStats | null>(null);
+  const [platform, setPlatform]         = useState<"cf" | "lc">("cf");
+  const [loading, setLoading]           = useState(true);
+  const [profileLoading, setPL]         = useState(true);
+  const [statsLoading, setSL]           = useState(true);
+  const [lcLoading, setLL]              = useState(true);
+  const [noHandle, setNoHandle]         = useState(false);
+  const [noLcHandle, setNoLC]           = useState(false);
+  const [refreshing, setRefreshing]     = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -507,6 +651,12 @@ export default function ContestsPage() {
       const d = await r.json();
       if (d.handle) setProblemStats(d);
     }).catch(console.error).finally(() => setSL(false));
+
+    fetch("/api/leetcode/stats").then(async (r) => {
+      const d = await r.json();
+      if (d.handle === null) setNoLC(true);
+      else if (d.handle)    setLcStats(d);
+    }).catch(console.error).finally(() => setLL(false));
   }, [load]);
 
   async function toggleReminder(contest: Contest) {
@@ -532,15 +682,38 @@ export default function ContestsPage() {
   return (
     <AppShell>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-ink">CF <em>Contests.</em></h1>
-          <p className="text-sm text-ink/40 font-sans mt-1">Upcoming rounds · set bell reminders</p>
+          <h1 className="font-serif text-3xl font-semibold text-ink">
+            {platform === "cf" ? <>CF <em>Contests.</em></> : <>LeetCode <em>Stats.</em></>}
+          </h1>
+          <p className="text-sm text-ink/40 font-sans mt-1">
+            {platform === "cf" ? "Upcoming rounds · set bell reminders" : "Your LC profile · problems & streak"}
+          </p>
         </div>
         <button onClick={() => load(true)} disabled={refreshing}
           className="p-2 text-ink/30 hover:text-ink/60 transition-colors disabled:opacity-40">
           <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
         </button>
+      </div>
+
+      {/* Platform toggle */}
+      <div className="flex gap-1 bg-mist/50 rounded-2xl p-1 mb-5">
+        {([
+          { key: "cf" as const, label: "⚡ Codeforces" },
+          { key: "lc" as const, label: "🟡 LeetCode"   },
+        ]).map(({ key, label }) => (
+          <button key={key} onClick={() => setPlatform(key)}
+            className="relative flex-1 py-2.5 text-sm font-medium font-sans rounded-xl"
+            style={{ color: platform === key ? "#2D2A26" : "#8B8075" }}>
+            {platform === key && (
+              <motion.div layoutId="platform-pill"
+                className="absolute inset-0 bg-white rounded-xl shadow-[0_1px_4px_rgba(45,42,38,0.10)]"
+                transition={{ type:"spring", damping:20, stiffness:300 }} />
+            )}
+            <span className="relative z-10">{label}</span>
+          </button>
+        ))}
       </div>
 
       {/* Next contest hero */}
@@ -571,30 +744,60 @@ export default function ContestsPage() {
         );
       })()}
 
-      {/* CF Profile — rating history */}
-      {!profileLoading && profile && <CFProfileSection profile={profile} />}
-
-      {/* CF Problem Stats — Phase 3 */}
-      {statsLoading && profile && (
-        <div className="space-y-3 mb-6">
-          {[0,1,2].map((i) => <Skeleton key={i} className="h-32" rounded="lg" />)}
-        </div>
+      {/* ── CODEFORCES TAB ─────────────────────────────────────────────── */}
+      {platform === "cf" && (
+        <>
+          {!profileLoading && profile && <CFProfileSection profile={profile} />}
+          {statsLoading && profile && (
+            <div className="space-y-3 mb-6">
+              {[0,1,2].map((i) => <Skeleton key={i} className="h-32" rounded="lg" />)}
+            </div>
+          )}
+          {!statsLoading && problemStats && <CFProblemStatsSection stats={problemStats} />}
+          {!profileLoading && noHandle && (
+            <div className="bg-mist/30 border border-mist rounded-2xl p-4 mb-5 flex items-center gap-3">
+              <Trophy size={18} className="text-ink/20 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-sans text-ink/60">Add your Codeforces handle in Settings to see your rating and stats</p>
+              </div>
+              <Link href="/settings" className="shrink-0 text-xs font-semibold font-sans text-sage flex items-center gap-1 hover:underline">
+                <Settings size={12}/> Settings
+              </Link>
+            </div>
+          )}
+        </>
       )}
-      {!statsLoading && problemStats && <CFProblemStatsSection stats={problemStats} />}
 
-      {/* No handle prompt */}
-      {!profileLoading && noHandle && (
-        <div className="bg-mist/30 border border-mist rounded-2xl p-4 mb-5 flex items-center gap-3">
-          <Trophy size={18} className="text-ink/20 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-sans text-ink/60">Connect your Codeforces account to see your rating history and past contests</p>
+      {/* ── LEETCODE TAB ───────────────────────────────────────────────── */}
+      {platform === "lc" && (
+        <>
+          {lcLoading && (
+            <div className="space-y-3 mb-6">
+              {[0,1,2].map((i) => <Skeleton key={i} className="h-32" rounded="lg" />)}
+            </div>
+          )}
+          {!lcLoading && lcStats && <LCStatsSection stats={lcStats} />}
+          {!lcLoading && noLcHandle && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-5 flex items-center gap-3">
+              <span className="text-2xl">🟡</span>
+              <div className="flex-1">
+                <p className="text-sm font-sans font-semibold text-ink">Connect your LeetCode account</p>
+                <p className="text-xs text-ink/50 font-sans mt-0.5">Add your LeetCode username in Settings to see your stats</p>
+              </div>
+              <Link href="/settings" className="shrink-0 text-xs font-semibold font-sans text-amber-600 flex items-center gap-1 hover:underline">
+                <Settings size={12}/> Settings
+              </Link>
+            </div>
+          )}
+          {/* No upcoming contests in LC tab */}
+          <div className="text-center py-8 text-ink/25 font-sans text-sm">
+            Contest tracker only available for Codeforces — switch to CF tab ⚡
           </div>
-          <Link href="/settings" className="shrink-0 text-xs font-semibold font-sans text-sage flex items-center gap-1 hover:underline">
-            <Settings size={12}/> Settings
-          </Link>
-        </div>
+        </>
       )}
 
+      {/* ── UPCOMING CONTESTS (CF only) ────────────────────────────────── */}
+      {platform === "lc" ? null : /* Upcoming contests */null}
       {/* Upcoming contests */}
       <div>
         <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40 mb-3">

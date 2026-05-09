@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId(session);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, description, color } = await req.json();
+  const { name, description, color, repoUrl } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const project = await db.project.create({
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       name:        name.trim(),
       description: (description ?? "").trim(),
       color:       color ?? "#6B8F71",
+      repoUrl:     repoUrl?.trim() || null,
     },
   });
 

@@ -51,9 +51,10 @@ export async function PATCH(
   const updated = await db.project.update({
     where: { id },
     data: {
-      name:        body.name        ?? project.name,
-      description: body.description ?? project.description,
-      color:       body.color       ?? project.color,
+      name:        body.name           ?? project.name,
+      description: body.description    ?? project.description,
+      color:       body.color          ?? project.color,
+      repoUrl:     body.repoUrl !== undefined ? (body.repoUrl?.trim() || null) : project.repoUrl,
     },
   });
 

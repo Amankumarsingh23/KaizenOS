@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, FolderOpen, ChevronRight } from "lucide-react";
+import { Plus, FolderOpen, ChevronRight, GitBranch } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -22,6 +22,7 @@ interface Project {
   name:        string;
   description: string;
   color:       string;
+  repoUrl:     string | null;
   createdAt:   string;
   milestones:  MilestoneMeta[];
 }
@@ -82,6 +83,12 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
               {project.name}
             </h2>
             <p className="text-xs text-ink/40 font-sans mt-0.5">{range}</p>
+            {project.repoUrl && (
+              <div className="flex items-center gap-1 mt-1">
+                <GitBranch size={10} className="text-ink/25" />
+                <span className="text-[10px] text-ink/30 font-mono">{project.repoUrl.split("/")[1] ?? project.repoUrl}</span>
+              </div>
+            )}
           </div>
           <div className="shrink-0 text-right">
             <p className="font-serif text-3xl font-semibold" style={{ color: statusColor }}>
@@ -141,6 +148,7 @@ function AddProjectForm({ onCreated }: { onCreated: (p: Project) => void }) {
   const [name, setName]       = useState("");
   const [desc, setDesc]       = useState("");
   const [color, setColor]     = useState(COLORS[0]);
+  const [repoUrl, setRepo]    = useState("");
   const [saving, setSaving]   = useState(false);
 
   async function handle() {
@@ -149,7 +157,7 @@ function AddProjectForm({ onCreated }: { onCreated: (p: Project) => void }) {
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description: desc, color }),
+      body: JSON.stringify({ name, description: desc, color, repoUrl }),
     });
     const p = await res.json();
     onCreated({ ...p, milestones: [] });
@@ -173,6 +181,16 @@ function AddProjectForm({ onCreated }: { onCreated: (p: Project) => void }) {
           placeholder="What are you building?"
           rows={2}
           className="w-full bg-cream border border-mist rounded-xl px-4 py-3 text-sm font-sans text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-sage/30 resize-none"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-ink/40 font-sans mb-1.5">
+          GitHub Repo <span className="text-ink/25">(optional — owner/repo)</span>
+        </label>
+        <input
+          value={repoUrl} onChange={(e) => setRepo(e.target.value)}
+          placeholder="e.g. amankumarsingh23/my-project"
+          className="w-full bg-cream border border-mist rounded-xl px-4 py-3 text-sm font-mono text-ink placeholder:text-ink/25 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-sage/30"
         />
       </div>
       <div>

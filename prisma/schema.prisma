@@ -114,6 +114,7 @@ model UserSettings {
   weeklySchedule   String?  // JSON: { "1": ["DSA","GD"], "2": [...], ... }
   githubUsername   String?
   cfHandle         String?
+  lcHandle         String?
   isPublic         Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -273,6 +274,7 @@ model Project {
   name        String
   description String
   color       String   @default("#6B8F71")
+  repoUrl     String?  // "owner/repo" e.g. "amankumarsingh23/KaizenOS"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
