@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import {
   Sparkles, CheckCircle2, AlertTriangle, ArrowRight,
-  RefreshCw, ChevronDown, Calendar, Loader2,
+  RefreshCw, ChevronDown, Calendar, Loader2, FileText, ExternalLink,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AppShell }      from "@/components/layout/AppShell";
 import { ScoreCircle }   from "@/components/ui/ScoreCircle";
 import { Badge }         from "@/components/ui/Badge";
@@ -299,12 +300,55 @@ function GeneratePrompt({ onGenerated }: { onGenerated: (r: Report) => void }) {
   );
 }
 
+// ─── Weekly Report Card ───────────────────────────────────────────────────────
+
+interface WeeklyMeta {
+  id: string; weekStart: string; totalSessions: number;
+  totalMinutes: number; avgDailyScore: number | null; consistency: number; motNote: string;
+}
+
+function WeeklyReportCard({ r, onClick }: { r: WeeklyMeta; onClick: () => void }) {
+  const weekLabel = `${format(new Date(r.weekStart), "MMM d")} – ${format(new Date(new Date(r.weekStart).getTime() + 6*86_400_000), "MMM d")}`;
+  const hours = Math.round(r.totalMinutes / 60 * 10) / 10;
+  return (
+    <motion.button onClick={onClick} whileTap={{ scale: 0.99 }}
+      className="w-full text-left bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(45,42,38,0.07)] border border-mist/60 hover:shadow-[0_4px_20px_rgba(45,42,38,0.12)] transition-shadow">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-sage/10 flex items-center justify-center shrink-0">
+          <FileText size={16} className="text-sage" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink font-sans">{weekLabel}</p>
+            {r.avgDailyScore && (
+              <span className="font-mono text-sm font-bold" style={{ color: r.avgDailyScore >= 7 ? "#6B8F71" : r.avgDailyScore >= 5 ? "#C4A35A" : "#C47D5A" }}>
+                {r.avgDailyScore}/10
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-ink/40 font-sans mt-0.5">
+            {r.totalSessions} sessions · {hours}h · {r.consistency}% consistency
+          </p>
+          {r.motNote && (
+            <p className="text-[11px] font-serif italic text-ink/50 mt-1.5 line-clamp-1">"{r.motNote}"</p>
+          )}
+        </div>
+        <ExternalLink size={13} className="text-ink/20 mt-1 shrink-0" />
+      </div>
+    </motion.button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [todayReport, setTodayReport] = useState<Report | null>(null);
   const [history, setHistory]         = useState<Report[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [weeklyReports, setWeekly]    = useState<WeeklyMeta[]>([]);
+  const [generatingWeekly, setGW]     = useState(false);
+  const [weeklyErr, setWE]            = useState("");
 
   useEffect(() => {
     async function load() {
@@ -331,7 +375,27 @@ export default function ReportsPage() {
       }
     }
     load();
+    fetch("/api/reports/weekly").then((r) => r.json()).then(setWeekly).catch(console.error);
   }, []);
+
+  async function generateWeeklyNow() {
+    setGW(true); setWE("");
+    try {
+      const res  = await fetch("/api/reports/weekly", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ weeksAgo: 0 }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setWeekly((prev) => {
+        const exists = prev.find((r) => r.id === data.id);
+        if (exists) return prev;
+        const stats = JSON.parse(data.stats ?? "{}");
+        return [{ id: data.id, weekStart: data.weekStart, totalSessions: stats.totalSessions, totalMinutes: stats.totalMinutes, avgDailyScore: stats.avgDailyScore, consistency: stats.consistency, motNote: data.motNote }, ...prev];
+      });
+      router.push(`/reports/weekly/${data.id}`);
+    } catch (err) {
+      setWE(err instanceof Error ? err.message : "Failed");
+    }
+    setGW(false);
+  }
 
   return (
     <AppShell>
@@ -412,6 +476,41 @@ export default function ReportsPage() {
           )}
         </div>
       )}
+
+      {/* ── Weekly Reports ──────────────────────────────────────────────── */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FileText size={13} className="text-ink/30" />
+            <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40">Weekly AI Reports</p>
+          </div>
+          <button
+            onClick={generateWeeklyNow}
+            disabled={generatingWeekly}
+            className="flex items-center gap-1.5 text-xs bg-sage text-white rounded-xl px-3 py-1.5 font-semibold font-sans disabled:opacity-50 hover:bg-sage/90 transition-colors"
+          >
+            {generatingWeekly ? <><Loader2 size={11} className="animate-spin" /> Generating…</> : <><Sparkles size={11}/> Generate This Week</>}
+          </button>
+        </div>
+
+        {weeklyErr && (
+          <p className="text-xs text-terracotta font-sans mb-3 bg-terracotta/8 rounded-xl px-3 py-2">{weeklyErr}</p>
+        )}
+
+        <div className="space-y-3">
+          {weeklyReports.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center shadow-[0_2px_8px_rgba(45,42,38,0.06)]">
+              <FileText size={24} className="text-ink/15 mx-auto mb-2" />
+              <p className="text-sm text-ink/35 font-sans">No weekly reports yet</p>
+              <p className="text-xs text-ink/20 font-sans mt-1">Auto-generated every Sunday · or generate now above</p>
+            </div>
+          ) : (
+            weeklyReports.map((r) => (
+              <WeeklyReportCard key={r.id} r={r} onClick={() => router.push(`/reports/weekly/${r.id}`)} />
+            ))
+          )}
+        </div>
+      </div>
     </AppShell>
   );
 }

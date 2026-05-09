@@ -98,6 +98,7 @@ model User {
   friendships        Friendship[] @relation("AddedFriends")
   followedBy         Friendship[] @relation("AddedByUser")
   contestReminders   ContestReminder[]
+  weeklyReports      WeeklyReport[]
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
@@ -135,6 +136,27 @@ model DSASkill {
 }
 
 // ─── Friendships ──────────────────────────────────────────────────────────────
+
+// ─── Contest Reminders ────────────────────────────────────────────────────────
+
+// ─── Weekly AI Report ─────────────────────────────────────────────────────────
+
+model WeeklyReport {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart DateTime
+  stats     String   // JSON: sessions, minutes, activeDays, scores
+  aiSummary String   // Full AI narrative (multi-paragraph)
+  strengths String   // JSON: string[]
+  gaps      String   // JSON: string[]
+  nextWeek  String   // JSON: string[]
+  motNote   String   // One-liner motivational close
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+}
 
 // ─── Contest Reminders ────────────────────────────────────────────────────────
 

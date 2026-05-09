@@ -3,6 +3,10 @@
     {
       "path": "/api/contests/remind",
       "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/reports/weekly/cron",
+      "schedule": "0 14 * * 0"
     }
   ]
 }
