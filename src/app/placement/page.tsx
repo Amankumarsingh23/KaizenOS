@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import {
-  Plus, X, ChevronDown, ChevronRight, Briefcase,
-  TrendingUp, CheckCircle2, XCircle, Clock, Target,
-  Building2, BookOpen, Trash2,
+  Plus, X, ChevronDown, Briefcase,
+  TrendingUp, CheckCircle2, XCircle, Clock,
+  Building2, Trash2,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  Tooltip, FunnelChart, Funnel, LabelList, LineChart, Line, CartesianGrid,
+  Tooltip, LineChart, Line, CartesianGrid,
 } from "recharts";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card }     from "@/components/ui/Card";
