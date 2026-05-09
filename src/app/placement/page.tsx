@@ -34,7 +34,7 @@ interface Round {
 interface Company {
   id: string; name: string; role: string; source: string | null;
   appliedDate: string; status: CompanyStatus; ctc: string | null;
-  notes: string | null; rounds: Round[];
+  resumeLabel: string | null; notes: string | null; rounds: Round[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -67,6 +67,7 @@ function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
   const [source, setSource]       = useState("");
   const [appliedDate, setDate]    = useState(format(new Date(), "yyyy-MM-dd"));
   const [ctc, setCtc]             = useState("");
+  const [resumeLabel, setResume]  = useState("");
   const [saving, setSaving]       = useState(false);
 
   async function submit() {
@@ -75,7 +76,7 @@ function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
     const res = await fetch("/api/companies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, role, source, appliedDate, ctc }),
+      body: JSON.stringify({ name, role, source, appliedDate, ctc, resumeLabel }),
     });
     if (res.ok) { onAdded(await res.json()); onClose(); }
     setSaving(false);
@@ -95,6 +96,7 @@ function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
             { label: "Role *",         value: role,        setter: setRole,   placeholder: "SDE-1, Data Analyst…" },
             { label: "Source",         value: source,      setter: setSource, placeholder: "LinkedIn, Referral, Campus…" },
             { label: "Expected CTC",   value: ctc,         setter: setCtc,    placeholder: "12 LPA, 50k/mo…" },
+            { label: "Resume Applied", value: resumeLabel, setter: setResume, placeholder: "Resume_SDE_v3, ML_Resume_Jan…" },
           ].map(({ label, value, setter, placeholder }) => (
             <div key={label}>
               <p className="text-[10px] uppercase tracking-widest text-ink/40 font-sans mb-1">{label}</p>
@@ -195,7 +197,10 @@ function CompanyCard({ company, onUpdate, onDelete }: {
                 {STATUS_LABELS[company.status]}
               </span>
             </div>
-            <p className="text-xs text-ink/40 font-sans mt-0.5">{company.role}{company.source ? ` · ${company.source}` : ""}</p>
+            <p className="text-xs text-ink/40 font-sans mt-0.5">
+              {company.role}{company.source ? ` · ${company.source}` : ""}
+              {company.resumeLabel && <span className="ml-1 text-[10px] bg-mist/80 text-ink/40 rounded px-1.5 py-0.5 font-mono">{company.resumeLabel}</span>}
+            </p>
             <p className="text-[10px] text-ink/30 font-sans mt-0.5">
               Applied {format(parseISO(company.appliedDate.slice(0, 10)), "d MMM yyyy")}
               {company.rounds.length > 0 && ` · ${company.rounds.length} round${company.rounds.length > 1 ? "s" : ""}`}

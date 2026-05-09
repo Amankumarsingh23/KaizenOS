@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId(session);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, role, source, appliedDate, ctc, notes } = await req.json();
+  const { name, role, source, appliedDate, ctc, resumeLabel, notes } = await req.json();
   if (!name?.trim() || !role?.trim() || !appliedDate) {
     return NextResponse.json({ error: "name, role, appliedDate required" }, { status: 400 });
   }
@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
       role: role.trim(),
       source: source?.trim() ?? null,
       appliedDate: new Date(appliedDate),
-      ctc: ctc?.trim() ?? null,
-      notes: notes?.trim() ?? null,
+      ctc:         ctc?.trim()         ?? null,
+      resumeLabel: resumeLabel?.trim() ?? null,
+      notes:       notes?.trim()       ?? null,
     },
     include: { rounds: true },
   });

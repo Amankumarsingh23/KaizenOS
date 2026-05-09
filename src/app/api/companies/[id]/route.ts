@@ -27,6 +27,7 @@ export async function PATCH(
       appliedDate: body.appliedDate ? new Date(body.appliedDate) : company.appliedDate,
       status:      body.status              ?? company.status,
       ctc:         body.ctc?.trim()         ?? company.ctc,
+      resumeLabel: body.resumeLabel !== undefined ? (body.resumeLabel?.trim() ?? null) : company.resumeLabel,
       notes:       body.notes?.trim()       ?? company.notes,
     },
     include: { rounds: { orderBy: { createdAt: "asc" } } },

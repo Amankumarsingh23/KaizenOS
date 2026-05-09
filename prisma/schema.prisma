@@ -393,6 +393,7 @@ model Company {
   appliedDate DateTime
   status      CompanyStatus @default(APPLIED)
   ctc         String?
+  resumeLabel String?       // e.g. "Resume_SDE_v3", "ML_Resume_Jan"
   notes       String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
