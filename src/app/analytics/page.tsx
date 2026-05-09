@@ -598,17 +598,62 @@ function TrendsTab({ data, loading }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// ─── Health Score Section ────────────────────────────────────────────────────
+
+interface HealthScore {
+  overall: number;
+  dimensions: { dim: string; score: number; desc: string }[];
+  weakestArea: string;
+  insight: string;
+}
+
+function HealthScoreSection({ score, loading }: { score: HealthScore | null; loading: boolean }) {
+  if (loading) return <Skeleton className="h-52 w-full mb-4" rounded="lg" />;
+  if (!score) return null;
+
+  const radarData = score.dimensions.map((d) => ({ subject: d.dim, value: d.score, fullMark: 100 }));
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)] mb-4">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-sm font-semibold text-ink font-sans">Placement Health Score</p>
+          <p className="text-[11px] text-ink/40 font-sans mt-0.5">Holistic readiness across all dimensions</p>
+        </div>
+        <div className="text-right">
+          <p className="font-serif text-3xl font-semibold text-ink">{score.overall}<span className="text-base text-ink/30">%</span></p>
+          <p className={`text-[10px] font-sans font-medium ${score.overall >= 70 ? "text-sage" : score.overall >= 40 ? "text-gold" : "text-terracotta"}`}>
+            {score.overall >= 70 ? "Interview ready" : score.overall >= 40 ? "Building up" : "Early stage"}
+          </p>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <RadarChart data={radarData} margin={{ top: 0, right: 20, bottom: 0, left: 20 }}>
+          <PolarGrid stroke="#E8E2D8" />
+          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: "#8B8075", fontFamily: "var(--font-dm-sans)" }} />
+          <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+          <Radar name="Score" dataKey="value" stroke="#6B8F71" fill="#6B8F71" fillOpacity={0.15} strokeWidth={2} />
+        </RadarChart>
+      </ResponsiveContainer>
+      <div className="mt-3 bg-terracotta/5 border border-terracotta/15 rounded-xl px-3 py-2">
+        <p className="text-xs font-sans text-terracotta/80 leading-relaxed">{score.insight}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const [tab, setTab]         = useState<Tab>("overview");
   const [data, setData]       = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [health, setHealth]   = useState<HealthScore | null>(null);
+  const [healthLoading, setHL] = useState(true);
 
   useEffect(() => {
     fetch("/api/analytics")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .then((r) => r.json()).then(setData).catch(console.error).finally(() => setLoading(false));
+    fetch("/api/health-score")
+      .then((r) => r.json()).then(setHealth).catch(console.error).finally(() => setHL(false));
   }, []);
 
   return (
@@ -653,7 +698,10 @@ export default function AnalyticsPage() {
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === "overview" && <OverviewTab data={data?.overview}  loading={loading} />}
+          {tab === "overview" && <>
+            <HealthScoreSection score={health} loading={healthLoading} />
+            <OverviewTab data={data?.overview} loading={loading} />
+          </>}
           {tab === "weekly"   && <WeeklyTab   data={data?.weekly}    loading={loading} />}
           {tab === "monthly"  && <MonthlyTab  data={data?.monthly}   loading={loading} />}
           {tab === "trends"   && <TrendsTab   data={data?.trends}    loading={loading} />}

@@ -100,11 +100,12 @@ function SectionCard({ title, icon: Icon, children }: {
 
 function ProfileSection() {
   const { user } = useCurrentUser();
-  const [name, setName]   = useState(user?.name ?? "");
-  const [github, setGH]   = useState("");
-  const [apiKey, setKey]  = useState("");
+  const [name, setName]       = useState(user?.name ?? "");
+  const [github, setGH]       = useState("");
+  const [apiKey, setKey]      = useState("");
   const [showKey, setShowKey] = useState(false);
-  const { state, save }   = useSaveState();
+  const [isPublic, setPublic] = useState(false);
+  const { state, save }       = useSaveState();
 
   useEffect(() => {
     if (user?.name) setName(user.name);
@@ -112,6 +113,7 @@ function ProfileSection() {
     setKey(saved);
     fetch("/api/settings").then(r => r.json()).then(d => {
       if (d.githubUsername) setGH(d.githubUsername);
+      if (d.isPublic !== undefined) setPublic(d.isPublic);
     }).catch(() => {});
   }, [user]);
 
@@ -120,7 +122,7 @@ function ProfileSection() {
       await fetch("/api/settings", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ name, githubUsername: github }),
+        body:    JSON.stringify({ name, githubUsername: github, isPublic }),
       });
       if (apiKey.trim()) localStorage.setItem("anthropic-api-key", apiKey.trim());
     });
@@ -166,6 +168,20 @@ function ProfileSection() {
             </button>
           </div>
         </div>
+        {/* Public profile toggle */}
+        <div className="flex items-center justify-between bg-cream border border-mist rounded-xl px-4 py-3">
+          <div>
+            <p className="text-sm font-sans font-medium text-ink">Public profile</p>
+            <p className="text-[11px] text-ink/40 font-sans mt-0.5">Show your streaks & session count on the leaderboard</p>
+          </div>
+          <button
+            onClick={() => setPublic((v) => !v)}
+            className={`w-11 h-6 rounded-full transition-colors relative ${isPublic ? "bg-sage" : "bg-mist"}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${isPublic ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </div>
+
         <div className="flex items-center justify-between pt-2">
           <SaveBtn state={state} onClick={handleSave} />
           <button

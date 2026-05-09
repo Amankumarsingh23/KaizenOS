@@ -38,6 +38,7 @@ export async function PUT(req: NextRequest) {
     morningTime, eveningTime,
     weeklySchedule,
     githubUsername,
+    isPublic,
     name, // profile update
   } = body;
 
@@ -50,6 +51,7 @@ export async function PUT(req: NextRequest) {
   if (eveningTime    !== undefined) settingsData.eveningTime    = eveningTime;
   if (weeklySchedule !== undefined) settingsData.weeklySchedule = JSON.stringify(weeklySchedule);
   if (githubUsername !== undefined) settingsData.githubUsername = githubUsername;
+  if (isPublic       !== undefined) settingsData.isPublic       = Boolean(isPublic);
 
   const [settings] = await Promise.all([
     db.userSettings.upsert({
