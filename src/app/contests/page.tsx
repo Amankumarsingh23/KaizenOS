@@ -6,14 +6,15 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   Bell, BellOff, ExternalLink, Clock, Trophy,
   TrendingUp, TrendingDown, Minus, RefreshCw, Settings,
+  Zap, BarChart2, CheckCircle2, Sparkles,
 } from "lucide-react";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine,
+  ResponsiveContainer, LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Cell,
 } from "recharts";
 import { AppShell }    from "@/components/layout/AppShell";
 import { Skeleton }    from "@/components/ui/Skeleton";
-import { WarmTooltip, TICK, GRID_PROPS } from "@/components/charts/ChartWrapper";
+import { WarmTooltip, TICK, GRID_PROPS, PALETTE } from "@/components/charts/ChartWrapper";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,6 +30,14 @@ interface CFProfile {
     contestId: number; contestName: string; rank: number;
     oldRating: number; newRating: number; delta: number; date: string;
   }[];
+}
+interface CFProblemStats {
+  handle: string; totalSubmissions: number; totalSolved: number;
+  acceptanceRate: number; currentStreak: number;
+  difficultyBreakdown: { label: string; count: number }[];
+  tagPerformance:      { tag: string; count: number; mapped: string | null }[];
+  skillSuggestions:    Record<string, { count: number; level: number }>;
+  calendar:            { date: string; count: number; dow: number }[];
 }
 
 // ─── CF rating helpers ────────────────────────────────────────────────────────
@@ -91,6 +100,201 @@ function useCountdown(startTimeMs: number) {
   if (days > 0)   return { label: `${days}d ${hours}h ${mins}m`, urgent: false };
   if (hours > 0)  return { label: `${hours}h ${mins}m ${secs}s`, urgent: hours < 3 };
   return { label: `${mins}m ${secs}s`, urgent: true };
+}
+
+// ─── Submission Heatmap ───────────────────────────────────────────────────────
+
+function SubmissionHeatmap({ calendar }: { calendar: CFProblemStats["calendar"] }) {
+  const firstDow = calendar[0]?.dow ?? 0;
+  const padded: (typeof calendar[0] | null)[] = [...Array(firstDow).fill(null), ...calendar];
+  const weeks: (typeof calendar[0] | null)[][] = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+
+  function heatColor(count: number) {
+    if (count === 0) return "#EDE9E0";
+    if (count <= 2)  return "#B8D4BB";
+    if (count <= 5)  return "#6B8F71";
+    if (count <= 10) return "#4A6B50";
+    return "#2D4A33";
+  }
+
+  const DAY_LABELS = ["M","W","F","S"];
+  const DAY_IDX    = [0, 2, 4, 6];
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+      <p className="text-sm font-semibold text-ink font-sans mb-3">Submission Activity <span className="text-[11px] font-normal text-ink/35">last 365 days</span></p>
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        <div className="flex flex-col gap-1 mr-1 pt-5 shrink-0">
+          {Array.from({ length: 7 }, (_, i) => (
+            <div key={i} className="w-3 h-3 flex items-center justify-center">
+              {DAY_IDX.includes(i) && <span className="text-[9px] text-ink/30 font-sans">{DAY_LABELS[DAY_IDX.indexOf(i)]}</span>}
+            </div>
+          ))}
+        </div>
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-1 shrink-0">
+            {wi % 4 === 0 && week[0] && (
+              <div className="h-4 flex items-end mb-0.5">
+                <span className="text-[8px] text-ink/25 font-sans">{format(new Date(week[0].date), "MMM")}</span>
+              </div>
+            )}
+            {wi % 4 !== 0 && <div className="h-4 mb-0.5" />}
+            {Array.from({ length: 7 }, (_, di) => {
+              const cell = week[di] ?? null;
+              return (
+                <div key={di} className="w-3 h-3 rounded-sm cursor-default"
+                  style={{ background: cell ? heatColor(cell.count) : "#F5F0E8" }}
+                  title={cell ? `${cell.date}: ${cell.count} submission${cell.count !== 1 ? "s" : ""}` : ""}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 mt-2">
+        <span className="text-[10px] text-ink/30 font-sans">Less</span>
+        {[0,1,3,6,11].map((v) => (
+          <div key={v} className="w-3 h-3 rounded-sm" style={{ background: heatColor(v) }} />
+        ))}
+        <span className="text-[10px] text-ink/30 font-sans">More</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── CF Problem Stats Section ─────────────────────────────────────────────────
+
+function CFProblemStatsSection({ stats }: { stats: CFProblemStats }) {
+  const [syncing, setSyncing]   = useState(false);
+  const [synced, setSynced]     = useState(false);
+  const maxCount = Math.max(...stats.difficultyBreakdown.map((d) => d.count), 1);
+
+  async function syncToSkillMap() {
+    setSyncing(true);
+    const entries = Object.entries(stats.skillSuggestions);
+    await Promise.all(entries.map(([topic, { level }]) =>
+      fetch("/api/skills", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, level }),
+      })
+    ));
+    setSynced(true);
+    setSyncing(false);
+    setTimeout(() => setSynced(false), 3000);
+  }
+
+  const DIFF_COLORS: Record<string, string> = {
+    "< 1000": "#8B8075", "1000": "#22c55e", "1200": "#06b6d4",
+    "1400": "#3b82f6", "1600": "#8b5cf6", "1800": "#f59e0b",
+    "2000": "#f97316", "2200": "#ef4444", "2400+": "#991b1b",
+  };
+
+  return (
+    <div className="space-y-4 mb-6">
+      {/* Summary stats */}
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { label: "Solved",    value: stats.totalSolved,     color: "text-sage"       },
+          { label: "AC Rate",   value: `${stats.acceptanceRate}%`, color: "text-blue-500" },
+          { label: "Submitted", value: stats.totalSubmissions, color: "text-ink"        },
+          { label: "Streak",    value: `${stats.currentStreak}d`, color: "text-gold"   },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white rounded-2xl p-3 text-center shadow-[0_2px_8px_rgba(45,42,38,0.06)]">
+            <p className={`font-serif text-xl font-semibold ${color}`}>{value}</p>
+            <p className="text-[9px] text-ink/35 font-sans mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Difficulty breakdown */}
+      <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+        <p className="text-sm font-semibold text-ink font-sans mb-4">Problems by Difficulty</p>
+        <div className="space-y-2">
+          {stats.difficultyBreakdown.filter((d) => d.count > 0).map((d) => (
+            <div key={d.label} className="flex items-center gap-3">
+              <span className="text-[10px] font-mono font-semibold w-12 shrink-0" style={{ color: DIFF_COLORS[d.label] ?? "#6B8F71" }}>
+                {d.label}
+              </span>
+              <div className="flex-1 h-5 bg-mist/40 rounded-lg overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(d.count / maxCount) * 100}%` }}
+                  transition={{ duration: 0.6 }}
+                  className="h-full rounded-lg flex items-center px-2"
+                  style={{ background: DIFF_COLORS[d.label] ?? "#6B8F71", opacity: 0.8 }}
+                >
+                  <span className="text-[9px] text-white font-semibold font-mono">{d.count}</span>
+                </motion.div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tag performance */}
+      <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)]">
+        <p className="text-sm font-semibold text-ink font-sans mb-4">Top Problem Tags</p>
+        <div className="flex flex-wrap gap-2">
+          {stats.tagPerformance.map(({ tag, count, mapped }) => (
+            <div key={tag}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-xs font-sans ${
+                mapped ? "bg-sage/8 border-sage/20 text-sage" : "bg-mist/40 border-mist text-ink/40"
+              }`}>
+              <span>{tag}</span>
+              <span className={`font-mono font-semibold text-[10px] ${mapped ? "text-sage" : "text-ink/30"}`}>{count}</span>
+            </div>
+          ))}
+        </div>
+        {Object.keys(stats.skillSuggestions).length > 0 && (
+          <p className="text-[10px] text-ink/30 font-sans mt-3">
+            ✦ Highlighted tags map to your DSA Skill Map
+          </p>
+        )}
+      </div>
+
+      {/* Submission heatmap */}
+      <SubmissionHeatmap calendar={stats.calendar} />
+
+      {/* Sync to Skill Map CTA */}
+      {Object.keys(stats.skillSuggestions).length > 0 && (
+        <div className="bg-gradient-to-br from-sage/8 to-sage/4 border border-sage/20 rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-sage/15 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles size={16} className="text-sage" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-ink font-sans">Sync to DSA Skill Map</p>
+              <p className="text-xs text-ink/50 font-sans mt-1 leading-relaxed">
+                Based on your {stats.totalSolved} solved problems across CF tags,
+                {" "}{Object.keys(stats.skillSuggestions).length} topics can be auto-rated on your skill map.
+                Solves 1–5 → Practicing · 6–20 → Comfortable · 21–50 → Strong · 50+ → Mastered.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-3 mb-3">
+                {Object.entries(stats.skillSuggestions).slice(0, 8).map(([topic, { level, count }]) => {
+                  const LEVEL_LABELS = ["","Practicing","Comfortable","Strong","Mastered"];
+                  const LEVEL_COLORS = ["","text-blue-500","text-amber-500","text-sage","text-violet-600"];
+                  return (
+                    <span key={topic} className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded-full bg-white border border-mist ${LEVEL_COLORS[level]}`}>
+                      {topic} → {LEVEL_LABELS[level]} ({count})
+                    </span>
+                  );
+                })}
+              </div>
+              <button onClick={syncToSkillMap} disabled={syncing || synced}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold font-sans transition-all ${
+                  synced ? "bg-sage/15 text-sage" : "bg-sage text-white hover:bg-sage/90 shadow-[0_2px_8px_rgba(107,143,113,0.30)]"
+                } disabled:opacity-60`}>
+                {synced ? <><CheckCircle2 size={14}/> Synced!</> :
+                 syncing ? "Syncing…" : <><Zap size={14}/> Auto-fill Skill Map</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Contest Card ─────────────────────────────────────────────────────────────
@@ -274,12 +478,14 @@ function CFProfileSection({ profile }: { profile: CFProfile }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContestsPage() {
-  const [contests, setContests]     = useState<Contest[]>([]);
-  const [profile, setProfile]       = useState<CFProfile | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [profileLoading, setPL]     = useState(true);
-  const [noHandle, setNoHandle]     = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [contests, setContests]       = useState<Contest[]>([]);
+  const [profile, setProfile]         = useState<CFProfile | null>(null);
+  const [problemStats, setProblemStats] = useState<CFProblemStats | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [profileLoading, setPL]       = useState(true);
+  const [statsLoading, setSL]         = useState(true);
+  const [noHandle, setNoHandle]       = useState(false);
+  const [refreshing, setRefreshing]   = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -296,6 +502,11 @@ export default function ContestsPage() {
       if (d.handle === null) { setNoHandle(true); }
       else if (d.handle)     { setProfile(d); }
     }).catch(console.error).finally(() => setPL(false));
+
+    fetch("/api/contests/problems").then(async (r) => {
+      const d = await r.json();
+      if (d.handle) setProblemStats(d);
+    }).catch(console.error).finally(() => setSL(false));
   }, [load]);
 
   async function toggleReminder(contest: Contest) {
@@ -360,8 +571,16 @@ export default function ContestsPage() {
         );
       })()}
 
-      {/* CF Profile — Phase 3 */}
+      {/* CF Profile — rating history */}
       {!profileLoading && profile && <CFProfileSection profile={profile} />}
+
+      {/* CF Problem Stats — Phase 3 */}
+      {statsLoading && profile && (
+        <div className="space-y-3 mb-6">
+          {[0,1,2].map((i) => <Skeleton key={i} className="h-32" rounded="lg" />)}
+        </div>
+      )}
+      {!statsLoading && problemStats && <CFProblemStatsSection stats={problemStats} />}
 
       {/* No handle prompt */}
       {!profileLoading && noHandle && (
