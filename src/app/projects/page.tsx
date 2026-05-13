@@ -154,10 +154,14 @@ function AddProjectForm({ onCreated }: { onCreated: (p: Project) => void }) {
   async function handle() {
     if (!name.trim()) return;
     setSaving(true);
+    // Normalize GitHub URL → owner/repo
+    const normalizedRepo = repoUrl
+      .replace(/^https?:\/\/(www\.)?github\.com\//, "")
+      .replace(/\.git$/, "").replace(/\/$/, "").trim();
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description: desc, color, repoUrl }),
+      body: JSON.stringify({ name, description: desc, color, repoUrl: normalizedRepo }),
     });
     const p = await res.json();
     onCreated({ ...p, milestones: [] });

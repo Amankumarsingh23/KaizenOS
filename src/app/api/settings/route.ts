@@ -52,9 +52,11 @@ export async function PUT(req: NextRequest) {
   if (morningTime    !== undefined) settingsData.morningTime    = morningTime;
   if (eveningTime    !== undefined) settingsData.eveningTime    = eveningTime;
   if (weeklySchedule !== undefined) settingsData.weeklySchedule = JSON.stringify(weeklySchedule);
-  if (githubUsername !== undefined) settingsData.githubUsername = githubUsername;
-  if (cfHandle       !== undefined) settingsData.cfHandle       = cfHandle?.trim() || null;
-  if (lcHandle       !== undefined) settingsData.lcHandle       = lcHandle?.trim() || null;
+  // Only update string handles if they contain a non-empty value
+  // (prevents empty form state on page load from wiping saved values)
+  if (githubUsername?.trim()) settingsData.githubUsername = githubUsername.trim();
+  if (cfHandle?.trim())       settingsData.cfHandle       = cfHandle.trim();
+  if (lcHandle?.trim())       settingsData.lcHandle       = lcHandle.trim();
   if (isPublic       !== undefined) settingsData.isPublic       = Boolean(isPublic);
 
   const [settings] = await Promise.all([

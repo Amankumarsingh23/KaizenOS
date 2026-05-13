@@ -20,8 +20,12 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const repo = searchParams.get("repo"); // "owner/repo"
-  if (!repo) return NextResponse.json({ error: "repo param required" }, { status: 400 });
+  let repo = searchParams.get("repo") ?? "";
+  // Accept full GitHub URLs: https://github.com/owner/repo or owner/repo
+  repo = repo.replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "").trim();
+  if (!repo || !repo.includes("/")) {
+    return NextResponse.json({ error: "Invalid repo — use 'owner/repo' or paste the GitHub URL" }, { status: 400 });
+  }
 
   const settings = await db.userSettings.findUnique({ where: { userId } });
   const author   = settings?.githubUsername?.trim() ?? "";
