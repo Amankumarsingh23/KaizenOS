@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, Timer, BarChart2, BookOpen, Settings } from "lucide-react";
+import { Target, Timer, BarChart2, BookOpen, Settings, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/",          label: "Today",     Icon: Target   },
-  { href: "/timer",     label: "Log",       Icon: Timer    },
+  { href: "/",          label: "Today",     Icon: Target    },
+  { href: "/timer",     label: "Log",       Icon: Timer     },
   { href: "/analytics", label: "Analytics", Icon: BarChart2 },
-  { href: "/topics",    label: "Topics",    Icon: BookOpen  },
+  { href: "/reports",   label: "Reports",   Icon: FileText  },
   { href: "/settings",  label: "Settings",  Icon: Settings  },
 ];
 
