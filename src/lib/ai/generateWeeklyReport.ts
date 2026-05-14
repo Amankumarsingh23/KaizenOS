@@ -4,15 +4,31 @@ import { format, startOfWeek, subDays, differenceInDays } from "date-fns";
 
 const MODEL = "llama-3.3-70b-versatile";
 
-/** Cleans LLM output so JSON.parse can handle it reliably */
+/** Cleans LLM output so JSON.parse can handle it reliably.
+ *  Only escapes control chars that appear INSIDE string values — not structural whitespace. */
 function cleanJson(raw: string): string {
-  return raw
-    .replace(/^```(?:json)?\s*/im, "")   // strip opening fence
-    .replace(/```\s*$/im, "")            // strip closing fence
-    .trim()
-    .replace(/\n/g, "\\n")              // escape raw newlines inside strings
-    .replace(/\r/g, "\\r")              // escape carriage returns
-    .replace(/\t/g, "\\t");             // escape tabs
+  const stripped = raw
+    .replace(/^```(?:json)?\s*/im, "")
+    .replace(/```\s*$/im, "")
+    .trim();
+
+  // State-machine: track whether we're inside a JSON string
+  let inString = false;
+  let escaped  = false;
+  let out      = "";
+
+  for (const ch of stripped) {
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\" && inString) { out += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString) {
+      if (ch === "\n") { out += "\\n";  continue; }
+      if (ch === "\r") { out += "\\r";  continue; }
+      if (ch === "\t") { out += "\\t";  continue; }
+    }
+    out += ch;
+  }
+  return out;
 }
 
 const CATS = ["DSA","GD","MOCK_INTERVIEW","PROJECT_WORK","CURRENT_AFFAIRS","JAPANESE","COMMUNICATION","READING"] as const;

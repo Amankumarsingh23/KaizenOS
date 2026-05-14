@@ -199,9 +199,18 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   // Parse JSON (strip any markdown fences if present)
   let parsed: ReportOutput;
   try {
-    const clean = rawText
-      .replace(/^```(?:json)?\s*/im, "").replace(/```\s*$/im, "").trim()
-      .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+    const stripped = rawText.replace(/^```(?:json)?\s*/im,"").replace(/```\s*$/im,"").trim();
+    // Only escape control chars inside JSON string values, not structural whitespace
+    let inStr = false, esc = false, clean = "";
+    for (const ch of stripped) {
+      if (esc) { clean += ch; esc = false; continue; }
+      if (ch === "\\" && inStr) { clean += ch; esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; clean += ch; continue; }
+      if (inStr && ch === "\n") { clean += "\\n"; continue; }
+      if (inStr && ch === "\r") { clean += "\\r"; continue; }
+      if (inStr && ch === "\t") { clean += "\\t"; continue; }
+      clean += ch;
+    }
     parsed = JSON.parse(clean);
   } catch {
     throw new Error(`Failed to parse Claude response: ${rawText.slice(0, 200)}`);
