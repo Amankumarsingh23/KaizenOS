@@ -27,13 +27,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid repo — use 'owner/repo' or paste the GitHub URL" }, { status: 400 });
   }
 
-  const settings = await db.userSettings.findUnique({ where: { userId } });
-  const author   = settings?.githubUsername?.trim() ?? "";
-
   try {
     const [commitsRes, repoRes] = await Promise.all([
       fetch(
-        `https://api.github.com/repos/${repo}/commits?author=${encodeURIComponent(author)}&per_page=20`,
+        `https://api.github.com/repos/${repo}/commits?per_page=20`,
         { headers: { "Accept":"application/vnd.github+json","User-Agent":"KaizenOS/1.0" }, next: { revalidate: 300 } }
       ),
       fetch(
