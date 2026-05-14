@@ -199,7 +199,9 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   // Parse JSON (strip any markdown fences if present)
   let parsed: ReportOutput;
   try {
-    const clean = rawText.replace(/^```(?:json)?\s*/im, "").replace(/```\s*$/im, "").trim();
+    const clean = rawText
+      .replace(/^```(?:json)?\s*/im, "").replace(/```\s*$/im, "").trim()
+      .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
     parsed = JSON.parse(clean);
   } catch {
     throw new Error(`Failed to parse Claude response: ${rawText.slice(0, 200)}`);

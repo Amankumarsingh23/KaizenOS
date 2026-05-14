@@ -4,6 +4,17 @@ import { format, startOfWeek, subDays, differenceInDays } from "date-fns";
 
 const MODEL = "llama-3.3-70b-versatile";
 
+/** Cleans LLM output so JSON.parse can handle it reliably */
+function cleanJson(raw: string): string {
+  return raw
+    .replace(/^```(?:json)?\s*/im, "")   // strip opening fence
+    .replace(/```\s*$/im, "")            // strip closing fence
+    .trim()
+    .replace(/\n/g, "\\n")              // escape raw newlines inside strings
+    .replace(/\r/g, "\\r")              // escape carriage returns
+    .replace(/\t/g, "\\t");             // escape tabs
+}
+
 const CATS = ["DSA","GD","MOCK_INTERVIEW","PROJECT_WORK","CURRENT_AFFAIRS","JAPANESE","COMMUNICATION","READING"] as const;
 
 export interface WeeklyStats {
@@ -212,12 +223,7 @@ export async function generateWeeklyReport(userId: string, weekStart?: Date) {
       messages: [{ role: "user", content: prompt }],
     });
     const raw  = res.choices[0]?.message?.content?.trim() ?? "";
-    // Strip any markdown code fences Groq sometimes wraps the response in
-    const clean = raw
-      .replace(/^```(?:json)?\s*/im, "")
-      .replace(/```\s*$/im, "")
-      .trim();
-    parsed = JSON.parse(clean);
+    parsed = JSON.parse(cleanJson(raw));
   } catch (err) {
     throw new Error(`Groq error: ${err instanceof Error ? err.message : String(err)}`);
   }
