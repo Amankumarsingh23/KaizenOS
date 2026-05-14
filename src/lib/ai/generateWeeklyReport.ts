@@ -212,7 +212,11 @@ export async function generateWeeklyReport(userId: string, weekStart?: Date) {
       messages: [{ role: "user", content: prompt }],
     });
     const raw  = res.choices[0]?.message?.content?.trim() ?? "";
-    const clean = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+    // Strip any markdown code fences Groq sometimes wraps the response in
+    const clean = raw
+      .replace(/^```(?:json)?\s*/im, "")
+      .replace(/```\s*$/im, "")
+      .trim();
     parsed = JSON.parse(clean);
   } catch (err) {
     throw new Error(`Groq error: ${err instanceof Error ? err.message : String(err)}`);
