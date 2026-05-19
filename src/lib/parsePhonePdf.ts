@@ -34,9 +34,12 @@ export function parseYourHourText(raw: string): ParsedPhoneReport {
   }
 
   // ── Total screen time ─────────────────────────────────────────────────────
-  // Match the MAIN usage block (the large number before the word "Usage")
-  const usageHM = text.match(/(\d+)h\s+(\d+)m[\s\S]{0,30}Usage/);
-  const usageHOnly = text.match(/(\d+)h[\s\S]{0,20}Usage/);
+  // Require "Usage" on its own line right after the time value.
+  // This avoids matching the delta line ("1h 55m\nMore than last day\nDaily Usage Report").
+  // Most precise: "9h 50m\nUsage\n45 times\nUnlocks"
+  const usageFull  = text.match(/(\d+)h\s+(\d+)m\s*\n\s*Usage\s*\n\s*\d/);
+  const usageHM    = usageFull ?? text.match(/(\d+)h\s+(\d+)m\s*\n\s*Usage\b/);
+  const usageHOnly = text.match(/(\d+)h\s*\n\s*Usage\b/);
   let totalMins = 0;
   if (usageHM) {
     totalMins = Number(usageHM[1]) * 60 + Number(usageHM[2]);
