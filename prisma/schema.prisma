@@ -99,6 +99,7 @@ model User {
   followedBy         Friendship[] @relation("AddedByUser")
   contestReminders   ContestReminder[]
   weeklyReports      WeeklyReport[]
+  phoneUsageLogs     PhoneUsageLog[]
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
@@ -133,6 +134,23 @@ model DSASkill {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, topic])
+}
+
+// ─── Phone Usage Logs ────────────────────────────────────────────────────────
+
+model PhoneUsageLog {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  totalMins   Int
+  unlockCount Int
+  topApps     String   // JSON: [{name,mins,visits}]
+  categories  String   // JSON: [{name,mins,pct}]
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 
 // ─── Friendships ──────────────────────────────────────────────────────────────
