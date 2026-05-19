@@ -49,6 +49,12 @@ async function gatherContext(userId: string) {
 function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
   const { sessions, pastReports, targets, streaks, today } = ctx;
   const month = format(today, "MMMM yyyy");
+
+  // Must be declared first — used in effectiveMin, DSA count, and session formatting below
+  const parseMeta = (raw: string | null) => {
+    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  };
+
   const totalMin = sessions.reduce((s, r) => s + r.durationMinutes, 0);
   // Effective time accounts for distraction: level 1=100% effective, 5=20% effective
   const effectiveMin = Math.round(
@@ -58,11 +64,6 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
       return sum + s.durationMinutes * focusFactor;
     }, 0)
   );
-
-  // Parse metadata and extract DSA problems solved
-  const parseMeta = (raw: string | null) => {
-    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-  };
   const totalDsaProblems = sessions
     .filter((s) => s.category === "DSA")
     .reduce((sum, s) => sum + (Number(parseMeta(s.metadata).count) || 0), 0);
