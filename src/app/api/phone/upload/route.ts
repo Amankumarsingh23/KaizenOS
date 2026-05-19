@@ -6,26 +6,17 @@ import { db } from "@/lib/db";
 import { parseYourHourText } from "@/lib/parsePhonePdf";
 import { startOfDay } from "date-fns";
 
-/** Extract text from a PDF buffer using pdf-parse's internal lib (avoids test-file issue) */
+/** Best-effort PDF text extraction. Falls back gracefully — paste-text is the reliable path. */
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  // Try the internal lib path first — avoids pdf-parse's problematic test file access
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-    const result   = await pdfParse(buffer);
-    return result.text ?? "";
-  } catch { /* fall through */ }
-
-  // Fallback: try the normal import
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mod      = await import("pdf-parse") as any;
     const pdfParse = mod.default ?? mod;
     const result   = await pdfParse(buffer);
     return result.text ?? "";
-  } catch { /* fall through */ }
-
-  return "";
+  } catch {
+    return "";
+  }
 }
 
 export async function POST(req: NextRequest) {
