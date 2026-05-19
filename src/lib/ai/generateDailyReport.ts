@@ -162,23 +162,8 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   }
 
   const ctx = await gatherContext(userId);
-
-  // Check for existing report today
-  const today    = startOfDay(new Date());
-  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-  const existing = await db.dailyReport.findFirst({
-    where: { userId, date: { gte: today, lt: tomorrow } },
-  });
-  if (existing) {
-    return {
-      overallScore:    existing.overallScore,
-      categoryScores:  JSON.parse(existing.categoryScores),
-      summary:         existing.summary,
-      strengths:       existing.strengths,
-      gaps:            existing.gaps,
-      recommendations: existing.recommendations,
-    };
-  }
+  // Always regenerate — score must reflect ALL sessions logged today, not just the first
+  const today = startOfDay(new Date());
 
   const prompt = buildPrompt(ctx);
 
@@ -224,18 +209,11 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   const gaps            = String(parsed.gaps ?? "");
   const recommendations = String(parsed.recommendations ?? "");
 
-  // Save to DB
-  await db.dailyReport.create({
-    data: {
-      userId,
-      date:            today,
-      overallScore,
-      categoryScores:  JSON.stringify(categoryScores),
-      summary,
-      strengths,
-      gaps,
-      recommendations,
-    },
+  // Upsert so each new session re-scores the full day (not just the first session)
+  await db.dailyReport.upsert({
+    where:  { userId_date: { userId, date: today } },
+    update: { overallScore, categoryScores: JSON.stringify(categoryScores), summary, strengths, gaps, recommendations },
+    create: { userId, date: today, overallScore, categoryScores: JSON.stringify(categoryScores), summary, strengths, gaps, recommendations },
   });
 
   return { overallScore, categoryScores, summary, strengths, gaps, recommendations };
