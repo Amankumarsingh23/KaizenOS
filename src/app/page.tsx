@@ -166,7 +166,7 @@ function ScoreCard({ report, last7, loading }: {
               </div>
             )}
           </div>
-          <ScoreCircle score={report.overallScore} size="lg" label="/ 100" />
+          <ScoreCircle score={Math.round(report.overallScore * 10)} size="lg" label="/ 100" />
         </div>
       ) : (
         <div className="flex items-center justify-between gap-4">

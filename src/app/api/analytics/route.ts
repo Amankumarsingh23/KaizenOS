@@ -48,9 +48,10 @@ export async function GET() {
   const scoreTrend = Array.from({ length: 30 }, (_, i) => {
     const d = subDays(today, 29 - i);
     const r = reports30.find((rep) => sameDay(new Date(rep.date), d));
-    return { date: format(d, "MMM d"), score: r ? r.overallScore : null };
+    // Multiply by 10 — AI returns 0-10, chart expects 0-100
+    return { date: format(d, "MMM d"), score: r ? Math.round(r.overallScore * 10) : null };
   });
-  const validScores = reports30.map((r) => r.overallScore);
+  const validScores = reports30.map((r) => r.overallScore * 10);
   const avgScore = validScores.length
     ? Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length)
     : null;

@@ -25,7 +25,7 @@ function buildLast7(reports: { date: Date; overallScore: number }[]): (number | 
   return Array.from({ length: 7 }, (_, i) => {
     const target = startOfDay(addDays(today, i - 6));
     const r = reports.find((rep) => startOfDay(new Date(rep.date)).getTime() === target.getTime());
-    return r ? r.overallScore : null;
+    return r ? Math.round(r.overallScore * 10) : null; // AI uses 0-10, display as 0-100
   });
 }
 
