@@ -66,6 +66,25 @@ function heatColor(mins: number) {
 
 const CAT_COLORS = ["#6B8F71","#C4A35A","#C47D5A","#5B8FD4","#8B5CF6","#F43F5E","#06B6D4","#22C55E"];
 
+// ─── Paste Text Helper ────────────────────────────────────────────────────────
+
+function PasteTextEntry({ onParse }: { onParse: (text: string) => void }) {
+  const [text, setText] = useState("");
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={text} onChange={(e) => setText(e.target.value)} rows={6}
+        placeholder={"Paste the full text from your YourHour PDF here...\n\nExample:\nYourHour\n9h 18m\nUsage\n44 times\nUnlocks\nTop 5 Used Apps\nBrave\nUsage Time: 3 Hours 3 Minutes\nVisits: 66\n..."}
+        className="w-full bg-white border border-mist rounded-xl px-3 py-2.5 text-xs font-mono text-ink placeholder:text-ink/20 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-sage/30 resize-none leading-relaxed"
+      />
+      <button onClick={() => onParse(text)} disabled={text.trim().length < 20}
+        className="w-full py-2.5 rounded-xl bg-sage text-white text-sm font-semibold font-sans disabled:opacity-40 hover:bg-sage/90 transition-colors">
+        Parse Pasted Text
+      </button>
+    </div>
+  );
+}
+
 // ─── Upload Tab ───────────────────────────────────────────────────────────────
 
 function UploadTab({ onSaved }: { onSaved: () => void }) {
@@ -88,7 +107,30 @@ function UploadTab({ onSaved }: { onSaved: () => void }) {
     form.append("pdf", file);
     const res  = await fetch("/api/phone/upload", { method: "POST", body: form });
     const data = await res.json();
-    if (!res.ok || data.error) { setErr(data.error ?? "Parse failed"); setStage("error"); return; }
+    if (!res.ok) {
+      if (data.error === "pdf_extract_failed") {
+        setErr("PDF binary extraction failed on server — please use the 'Paste PDF text' option below instead.");
+      } else if (data.error === "not_yourhour_pdf") {
+        setErr("This doesn't look like a YourHour report. Make sure you're sharing the Daily Report PDF.");
+      } else {
+        setErr(data.error ?? "Parse failed");
+      }
+      setStage("error"); return;
+    }
+    setPreview(data.parsed);
+    setStage("preview");
+  }
+
+  async function handlePasteText(rawText: string) {
+    if (!rawText.trim()) return;
+    setStage("parsing"); setErr("");
+    const res  = await fetch("/api/phone/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rawText }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setErr(data.error ?? "Could not parse"); setStage("error"); return; }
     setPreview(data.parsed);
     setStage("preview");
   }
@@ -210,35 +252,45 @@ function UploadTab({ onSaved }: { onSaved: () => void }) {
         </motion.div>
       )}
 
-      {/* Manual entry */}
+
+      {/* Paste text option */}
       <div>
         <button onClick={() => setManual((v) => !v)}
-          className="flex items-center gap-2 text-xs text-ink/40 hover:text-ink/60 font-sans transition-colors">
+          className="flex items-center gap-2 text-xs text-sage font-sans font-medium transition-colors">
           <ChevronDown size={12} className={`transition-transform ${manual ? "rotate-180" : ""}`} />
-          Manual entry (if PDF fails)
+          PDF not working? Paste text or enter manually
         </button>
         <AnimatePresence>
           {manual && (
             <motion.div initial={{ height:0, opacity:0 }} animate={{ height:"auto", opacity:1 }} exit={{ height:0, opacity:0 }}
               className="overflow-hidden">
-              <div className="bg-mist/20 rounded-2xl p-4 mt-3 space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label:"Date", type:"date", value:mDate, set:setMDate },
-                    { label:"Screen time (min)", type:"number", value:mScreen, set:setMScreen },
-                    { label:"Unlocks", type:"number", value:mUnlocks, set:setMUnlocks },
-                  ].map(({ label, type, value, set }) => (
-                    <div key={label}>
-                      <p className="text-[10px] text-ink/40 font-sans mb-1">{label}</p>
-                      <input type={type} value={value} onChange={(e) => set(e.target.value)}
-                        className="w-full bg-white border border-mist rounded-xl px-3 py-2 text-sm font-mono text-ink focus:outline-none focus:ring-2 focus:ring-sage/30" />
-                    </div>
-                  ))}
+              <div className="bg-mist/20 rounded-2xl p-4 mt-3 space-y-4">
+                {/* Paste text */}
+                <div>
+                  <p className="text-xs font-semibold text-ink/60 font-sans mb-2">Option A — Paste PDF text (recommended)</p>
+                  <p className="text-[11px] text-ink/40 font-sans mb-2">Open the PDF → Ctrl+A → Ctrl+C → paste here</p>
+                  <PasteTextEntry onParse={handlePasteText} />
                 </div>
-                <button onClick={saveManual} disabled={!mScreen || !mUnlocks}
-                  className="w-full py-2.5 rounded-xl bg-sage text-white text-sm font-semibold font-sans disabled:opacity-40">
-                  Save Manual Entry
-                </button>
+                <div className="border-t border-mist/40 pt-4">
+                  <p className="text-xs font-semibold text-ink/60 font-sans mb-2">Option B — Type numbers manually</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label:"Date", type:"date", value:mDate, set:setMDate },
+                      { label:"Screen time (min)", type:"number", value:mScreen, set:setMScreen },
+                      { label:"Unlocks", type:"number", value:mUnlocks, set:setMUnlocks },
+                    ].map(({ label, type, value, set }) => (
+                      <div key={label}>
+                        <p className="text-[10px] text-ink/40 font-sans mb-1">{label}</p>
+                        <input type={type} value={value} onChange={(e) => set(e.target.value)}
+                          className="w-full bg-white border border-mist rounded-xl px-3 py-2 text-sm font-mono text-ink focus:outline-none focus:ring-2 focus:ring-sage/30" />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={saveManual} disabled={!mScreen || !mUnlocks || saving}
+                    className="w-full mt-2 py-2.5 rounded-xl bg-sage text-white text-sm font-semibold font-sans disabled:opacity-40">
+                    Save Manual Entry
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
