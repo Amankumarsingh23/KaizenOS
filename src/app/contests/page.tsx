@@ -769,6 +769,7 @@ export default function ContestsPage() {
       )}
 
       {/* ── LEETCODE TAB ───────────────────────────────────────────────── */}
+      {/* ── LEETCODE TAB ─────────────────────────────────────────────────────── */}
       {platform === "lc" && (
         <>
           {lcLoading && (
@@ -782,50 +783,52 @@ export default function ContestsPage() {
               <span className="text-2xl">🟡</span>
               <div className="flex-1">
                 <p className="text-sm font-sans font-semibold text-ink">Connect your LeetCode account</p>
-                <p className="text-xs text-ink/50 font-sans mt-0.5">Add your LeetCode username in Settings to see your stats</p>
+                <p className="text-xs text-ink/50 font-sans mt-0.5">Add your LeetCode username in Settings to see your stats here</p>
               </div>
               <Link href="/settings" className="shrink-0 text-xs font-semibold font-sans text-amber-600 flex items-center gap-1 hover:underline">
                 <Settings size={12}/> Settings
               </Link>
             </div>
           )}
-          {/* No upcoming contests in LC tab */}
-          <div className="text-center py-8 text-ink/25 font-sans text-sm">
-            Contest tracker only available for Codeforces — switch to CF tab ⚡
+          {!lcLoading && !lcStats && !noLcHandle && (
+            <div className="text-center py-10">
+              <p className="text-sm text-ink/30 font-sans">Could not load LeetCode stats — check your username in Settings</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── UPCOMING CONTESTS + REMINDER — CF tab only ───────────────────── */}
+      {platform === "cf" && (
+        <>
+          <div>
+            <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40 mb-3">
+              Upcoming Contests
+            </p>
+            {loading ? (
+              <div className="space-y-3">{[0,1,2,3].map((i) => <Skeleton key={i} className="h-20" rounded="lg"/>)}</div>
+            ) : contests.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-sm text-ink/30 font-sans">No upcoming contests found</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contests.map((c) => (
+                  <ContestCard key={c.id} contest={c} onToggleReminder={toggleReminder} />
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="mt-6 bg-parchment border border-mist/60 rounded-2xl p-4">
+            <p className="text-xs text-ink/40 font-sans leading-relaxed">
+              <span className="font-semibold text-ink/60">🔔 Reminders</span> — tap the bell on any contest.
+              You&apos;ll get a push notification ~1 hour before it starts.
+              Reminders run daily at 8 AM IST via scheduled job.
+            </p>
           </div>
         </>
       )}
 
-      {/* ── UPCOMING CONTESTS (CF only) ────────────────────────────────── */}
-      {platform === "lc" ? null : /* Upcoming contests */null}
-      {/* Upcoming contests */}
-      <div>
-        <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40 mb-3">
-          Upcoming Contests
-        </p>
-        {loading ? (
-          <div className="space-y-3">{[0,1,2,3].map((i) => <Skeleton key={i} className="h-20" rounded="lg"/>)}</div>
-        ) : contests.length === 0 ? (
-          <div className="text-center py-10">
-            <p className="text-sm text-ink/30 font-sans">No upcoming contests found</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {contests.map((c) => (
-              <ContestCard key={c.id} contest={c} onToggleReminder={toggleReminder} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Reminder info */}
-      <div className="mt-6 bg-parchment border border-mist/60 rounded-2xl p-4">
-        <p className="text-xs text-ink/40 font-sans leading-relaxed">
-          <span className="font-semibold text-ink/60">🔔 Reminders</span> — tap the bell on any contest.
-          You'll get a push notification ~1 hour before it starts (requires notification permission).
-          Reminders run daily at 8 AM IST via scheduled job.
-        </p>
-      </div>
     </AppShell>
   );
 }
