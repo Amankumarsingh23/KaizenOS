@@ -225,7 +225,9 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
     }
     parsed = JSON.parse(clean);
   } catch {
-    throw new Error(`Failed to parse Claude response: ${rawText.slice(0, 200)}`);
+    // Log the raw response so we can debug parse issues
+    console.error("[daily-report] JSON parse failed. Raw:", rawText.slice(0, 300));
+    throw new Error(`Failed to parse AI response: ${rawText.slice(0, 100)}`);
   }
 
   // Validate & clamp

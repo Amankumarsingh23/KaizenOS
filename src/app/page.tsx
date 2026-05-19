@@ -138,20 +138,40 @@ function GreetingSection({ user, nudge, loading }: {
 
 // ─── Section: Today's Score ───────────────────────────────────────────────────
 
-function ScoreCard({ report, last7, loading }: {
+function ScoreCard({ report, last7, loading, onRefresh }: {
   report: DailyReport | null;
   last7: (number | null)[];
   loading: boolean;
+  onRefresh: () => void;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await fetch("/api/reports/generate", { method: "POST" });
+      onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   if (loading) return <ScoreCardSkeleton />;
 
   const has7 = last7.some((v) => v !== null);
 
   return (
     <Card className="mb-4">
-      <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40 mb-3">
-        Daily Score
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] uppercase tracking-widest font-sans font-medium text-ink/40">
+          Daily Score
+        </p>
+        <button onClick={handleRefresh} disabled={refreshing}
+          className="text-[10px] text-ink/30 hover:text-sage font-sans flex items-center gap-1 transition-colors disabled:opacity-40">
+          <TrendingUp size={10} className={refreshing ? "animate-pulse" : ""} />
+          {refreshing ? "Updating…" : "Refresh"}
+        </button>
+      </div>
       {report ? (
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -732,7 +752,12 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <GreetingSection user={user} nudge={nudge} loading={loading && recsLoading} />
-      <ScoreCard       report={dailyReport} last7={last7Scores} loading={loading} />
+      <ScoreCard
+        report={dailyReport} last7={last7Scores} loading={loading}
+        onRefresh={() => {
+          fetch("/api/dashboard").then((r) => r.json()).then(setData).catch(console.error);
+        }}
+      />
       <TimerShortcut />
       <MorningPlanCard recs={recs} loading={recsLoading} />
       <SessionTimeline sessions={todaySessions} loading={loading} />
