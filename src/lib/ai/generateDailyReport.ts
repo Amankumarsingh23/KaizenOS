@@ -51,28 +51,41 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
   const month = format(today, "MMMM yyyy");
   const totalMin = sessions.reduce((s, r) => s + r.durationMinutes, 0);
 
+  // Parse metadata and extract DSA problems solved
+  const parseMeta = (raw: string | null) => {
+    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  };
+  const totalDsaProblems = sessions
+    .filter((s) => s.category === "DSA")
+    .reduce((sum, s) => sum + (Number(parseMeta(s.metadata).count) || 0), 0);
+
   // Format sessions
   const sessionsText = sessions.length === 0
     ? "No sessions logged today."
     : sessions.map((s) => {
         const stars = "★".repeat(s.selfRating) + "☆".repeat(5 - s.selfRating);
-        const meta = s.metadata ? (() => { try { return JSON.parse(s.metadata!); } catch { return {}; } })() : {};
-        const metaStr = Object.entries(meta)
-          .filter(([, v]) => v)
-          .map(([k, v]) => `${k}=${v}`)
-          .join(", ");
+        const meta = parseMeta(s.metadata);
+        const parts: string[] = [];
+        if (meta.count)      parts.push(`${meta.count} problems solved`);
+        if (meta.problem)    parts.push(`problems: ${meta.problem}`);
+        if (meta.difficulty) parts.push(`difficulty: ${meta.difficulty}`);
+        if (meta.platform)   parts.push(`platform: ${meta.platform}`);
+        if (meta.topic)      parts.push(`topic: ${meta.topic}`);
+        if (meta.project)    parts.push(`project: ${meta.project}`);
+        const metaStr = parts.join(", ");
         return `- ${s.category.replace(/_/g," ")} | ${s.durationMinutes} min | ${stars} | ${s.notes}${metaStr ? ` (${metaStr})` : ""}`;
       }).join("\n");
 
-  // Format past scores
+  // Format past scores — normalise old 0-10 scores to 0-100 for consistent context
+  const normalise = (score: number) => score <= 10 ? Math.round(score * 10) : Math.round(score);
   const scoresText = pastReports.length === 0
     ? "No recent history."
     : pastReports.map((r) =>
-        `- ${format(new Date(r.date), "EEE MMM d")}: ${r.overallScore}/10`
+        `- ${format(new Date(r.date), "EEE MMM d")}: ${normalise(r.overallScore)}/100`
       ).join("\n");
   const recentAvg = pastReports.length
-    ? (pastReports.reduce((s, r) => s + r.overallScore, 0) / pastReports.length).toFixed(1)
-    : "N/A";
+    ? Math.round(pastReports.reduce((s, r) => s + normalise(r.overallScore), 0) / pastReports.length)
+    : null;
 
   // Format targets
   const dom = today.getDate();
@@ -96,61 +109,60 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
     return `- ${cat.replace(/_/g," ")}: ${s.currentStreak}d streak (best: ${s.bestStreak}d) [${status}]`;
   }).filter(Boolean).join("\n") || "No streaks yet.";
 
-  return `You are a personal learning coach analyzing a student's study data for ${format(today, "EEEE, MMMM d, yyyy")}.
+  const dsaSummary = totalDsaProblems > 0
+    ? `DSA: ${totalDsaProblems} problem${totalDsaProblems > 1 ? "s" : ""} solved today`
+    : "DSA: no problems logged yet today";
 
-The student is preparing for competitive placements in India. They practice DSA, Group Discussion, Mock Interviews, Project Work, Current Affairs, Japanese, Communication (STAR stories), and Reading.
+  return `You are a sharp, honest placement coach scoring a student's study day on a 0–100 scale for ${format(today, "EEEE, MMMM d, yyyy")}.
 
-───────────────────────────────
-TODAY'S SESSIONS (${totalMin} minutes total, ${sessions.length} session${sessions.length !== 1 ? "s" : ""})
-───────────────────────────────
+The student is preparing for tech placements in India (DSA, GD, Mock Interviews, Projects, Current Affairs, Japanese, Communication, Reading).
+
+═══ TODAY'S SESSIONS (${totalMin} min total · ${sessions.length} session${sessions.length !== 1 ? "s" : ""} · ${dsaSummary}) ═══
 ${sessionsText}
 
-───────────────────────────────
-LAST 7 DAYS OF SCORES (recent avg: ${recentAvg}/10)
-───────────────────────────────
+═══ LAST 7 DAYS (recent avg: ${recentAvg !== null ? `${recentAvg}/100` : "N/A"}) ═══
 ${scoresText}
 
-───────────────────────────────
-${month.toUpperCase()} TARGETS & PROGRESS
-(Today is day ${dom}/${daysInMonth} — expected ${expectedPct}% done)
-───────────────────────────────
+═══ ${month.toUpperCase()} TARGETS (day ${dom}/${daysInMonth} — expected ${expectedPct}% done) ═══
 ${targetsText}
 
-───────────────────────────────
-STREAKS
-───────────────────────────────
+═══ STREAKS ═══
 ${streaksText}
 
-───────────────────────────────
-SCORING GUIDE
-───────────────────────────────
-Overall score (0–10):
-  0–2: No meaningful study
-  3–5: Light effort or major imbalance
-  6–7: Solid day with some gaps
-  8–9: Strong, consistent, well-balanced
-  10: Exceptional — targets hit, all key categories, great quality
+═══ SCORING RUBRIC (0–100, be precise and granular) ═══
 
-Factors to weigh:
-  1. Volume (60 min is a baseline solid day; 120+ min is excellent)
-  2. Category balance (DSA + GD are the core; others are bonus)
-  3. Consistency with targets (on-track = good, behind = penalize)
-  4. Streak maintenance (broken streak = deduct 1 point)
-  5. Quality (self-rating, specific problems solved, notes detail)
-  6. Trend vs yesterday/recent avg (improvement = bonus)
+DSA PROBLEMS SOLVED today (${totalDsaProblems}):
+  0 problems   →  -15 from DSA subscore
+  1–2 problems →  base DSA subscore ~40–55
+  3–5 problems →  base DSA subscore ~60–75
+  6–9 problems →  base DSA subscore ~80–90
+  10+ problems →  base DSA subscore 90–100
+  Adjust up for Hard difficulty, down for Easy-only
 
-───────────────────────────────
-INSTRUCTIONS
-───────────────────────────────
-Return ONLY a JSON object with exactly these keys. No markdown, no explanation, no wrapping — raw JSON only.
+OVERALL SCORE formula (weighted):
+  DSA effort & problems (30%)  — volume × quality × problem count
+  Category breadth (20%)       — 1 cat = max 50%, 2 cats = 65%, 3+ cats = full marks
+  Target progress (20%)        — on-track = full, behind = deduct proportionally
+  Streaks maintained (15%)     — each active streak = +3 pts, each broken = -2 pts
+  Session quality (10%)        — self-rating average, notes specificity
+  Trend vs recent avg (5%)     — improving = bonus, declining = slight penalty
 
+ROUGH BANDS:
+  90–100: Exceptional — multiple categories, targets hit, high problem count
+  75–89:  Strong — solid effort, good variety, mostly on track
+  60–74:  Good — meaningful work, 1-2 categories, slight target gap
+  45–59:  Decent — single-category focus, behind on targets
+  30–44:  Light — short sessions or minimal effort
+  0–29:   Off day — nothing logged or trivially short
+
+═══ OUTPUT — raw JSON only, no markdown fences, no explanation ═══
 {
-  "overallScore": [number 0.0–10.0, one decimal allowed],
-  "categoryScores": {[only categories studied today, keys as-is]: [0.0–10.0]},
-  "summary": "[2–3 sentences. Be specific: mention actual numbers (e.g. '4 LeetCode problems in 90 minutes'). Reference targets and streaks. Honest overall assessment.]",
-  "strengths": "[specific win 1], [specific win 2], [specific win 3 if applicable]",
-  "gaps": "[specific gap 1], [specific gap 2 if applicable]",
-  "recommendations": "[tomorrow's action 1 — be very specific], [tomorrow's action 2], [tomorrow's action 3]"
+  "overallScore": [integer 0–100, calculated precisely using rubric above],
+  "categoryScores": {[only categories studied today, key=category name, value=0–100]},
+  "summary": "[2–3 sentences. MUST mention: total minutes, exact DSA problems solved, which categories, target status. Honest. No filler.]",
+  "strengths": "[specific achievement with numbers], [another specific win]",
+  "gaps": "[specific gap with impact], [another gap if relevant]",
+  "recommendations": "[specific tomorrow action 1], [specific tomorrow action 2], [specific tomorrow action 3]"
 }`;
 }
 
@@ -202,7 +214,8 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   }
 
   // Validate & clamp
-  const overallScore    = Math.max(0, Math.min(10, Number(parsed.overallScore ?? 5)));
+  // AI now returns 0-100 natively
+  const overallScore    = Math.max(0, Math.min(100, Math.round(Number(parsed.overallScore ?? 50))));
   const categoryScores  = parsed.categoryScores ?? {};
   const summary         = String(parsed.summary ?? "");
   const strengths       = String(parsed.strengths ?? "");

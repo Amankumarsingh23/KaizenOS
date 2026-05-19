@@ -65,8 +65,9 @@ function ReportCard({
   const recs          = splitList(report.recommendations);
   const catScores     = Object.entries(report.categoryScores ?? {});
   const dateStr       = format(new Date(report.date), "EEEE, MMMM d");
-  const score10       = report.overallScore;         // 0–10
-  const score100      = Math.round(score10 * 10);    // for ScoreCircle
+  // Normalise: old reports were 0-10, new reports are 0-100
+  const score10  = report.overallScore <= 10 ? report.overallScore : report.overallScore / 10;
+  const score100 = report.overallScore <= 10 ? Math.round(report.overallScore * 10) : Math.round(report.overallScore);
 
   return (
     <motion.div

@@ -82,10 +82,26 @@ function SubcategoryFields({
     </div>
   );
 
+  const num = (label: string, key: string, placeholder: string) => (
+    <div key={key}>
+      <label className="block text-xs font-medium text-ink/50 mb-1.5 font-sans">{label}</label>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        value={meta[key] ?? ""}
+        onChange={(e) => onChange(key, e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-mono text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/50 transition-colors"
+      />
+    </div>
+  );
+
   switch (category) {
     case "DSA":
       return <div className="space-y-3">
-        {txt("Problem name", "problem", "e.g. Two Sum")}
+        {num("Problems solved this session", "count", "e.g. 3")}
+        {txt("Problem names (optional)", "problem", "e.g. Two Sum, LRU Cache, Merge Intervals")}
         {sel("Platform", "platform", PLATFORMS)}
         {sel("Difficulty", "difficulty", DIFFICULTIES)}
       </div>;
