@@ -14,7 +14,7 @@ export async function PUT(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { content, mood, energy } = await req.json();
+  const { content, mood, energy, screenTimeMins, pickupCount, weightKg, sleepHours, proteinGrams } = await req.json();
 
   if (!content?.trim() || !mood || !energy) {
     return NextResponse.json({ error: "content, mood, and energy required" }, { status: 400 });
@@ -27,7 +27,14 @@ export async function PUT(
 
   const updated = await db.journalEntry.update({
     where: { id },
-    data: { content: content.trim(), mood: Number(mood), energy: Number(energy) },
+    data: {
+      content: content.trim(), mood: Number(mood), energy: Number(energy),
+      ...(screenTimeMins != null && { screenTimeMins: Number(screenTimeMins) }),
+      ...(pickupCount    != null && { pickupCount:    Number(pickupCount) }),
+      ...(weightKg       != null && { weightKg:       Number(weightKg) }),
+      ...(sleepHours     != null && { sleepHours:     Number(sleepHours) }),
+      ...(proteinGrams   != null && { proteinGrams:   Number(proteinGrams) }),
+    },
   });
 
   return NextResponse.json(updated);

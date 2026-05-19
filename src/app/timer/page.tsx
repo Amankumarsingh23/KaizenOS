@@ -206,12 +206,13 @@ function fmt(secs: number) {
 
 function SavePanel({ onClose }: { onClose: () => void }) {
   const { category, elapsed, startTime, saveSession } = useTimer();
-  const [notes, setNotes]     = useState("");
-  const [rating, setRating]   = useState(0);
-  const [meta, setMeta]       = useState<Record<string, string>>({});
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-  const textRef               = useRef<HTMLTextAreaElement>(null);
+  const [notes, setNotes]           = useState("");
+  const [rating, setRating]         = useState(0);
+  const [distraction, setDistract]  = useState(3); // 1=fully focused → 5=very distracted
+  const [meta, setMeta]             = useState<Record<string, string>>({});
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+  const textRef                     = useRef<HTMLTextAreaElement>(null);
 
   const endTime = new Date();
   const durationMins = Math.max(1, Math.round(elapsed / 60));
@@ -227,7 +228,7 @@ function SavePanel({ onClose }: { onClose: () => void }) {
       notes: notes.trim() || "—",
       selfRating: rating,
       subcategory: meta.problem || meta.topic || meta.title || meta.project || undefined,
-      metadata: Object.keys(meta).length ? meta : undefined,
+      metadata: { ...meta, distractionLevel: String(distraction) },
     };
     await saveSession(payload);
     setSaved(true);
@@ -320,6 +321,30 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           {rating === 0 && (
             <p className="text-xs text-terracotta/70 mt-1.5 font-sans">Tap stars to rate</p>
           )}
+        </div>
+
+        {/* Distraction level */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-ink/40 uppercase tracking-widest font-sans">
+              Focus level
+            </p>
+            <p className="text-xs font-sans font-semibold" style={{
+              color: distraction === 1 ? "#6B8F71" : distraction === 2 ? "#8FBF95"
+                : distraction === 3 ? "#C4A35A" : distraction === 4 ? "#C47D5A" : "#C0392B"
+            }}>
+              {["","🧘 Fully focused","😌 Mostly focused","😐 Some distractions","📱 Quite distracted","🔥 Very distracted"][distraction]}
+            </p>
+          </div>
+          <input
+            type="range" min={1} max={5} value={distraction}
+            onChange={(e) => setDistract(Number(e.target.value))}
+            className="w-full accent-sage"
+          />
+          <div className="flex justify-between text-[9px] text-ink/25 font-sans mt-0.5">
+            <span>Phone away, zero interruptions</span>
+            <span>Cricket + calls + scrolling</span>
+          </div>
         </div>
 
         {/* Save button */}

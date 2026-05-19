@@ -50,6 +50,14 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
   const { sessions, pastReports, targets, streaks, today } = ctx;
   const month = format(today, "MMMM yyyy");
   const totalMin = sessions.reduce((s, r) => s + r.durationMinutes, 0);
+  // Effective time accounts for distraction: level 1=100% effective, 5=20% effective
+  const effectiveMin = Math.round(
+    sessions.reduce((sum, s) => {
+      const d = Number(parseMeta(s.metadata).distractionLevel) || 3;
+      const focusFactor = (6 - d) / 5; // 1→1.0, 2→0.8, 3→0.6, 4→0.4, 5→0.2
+      return sum + s.durationMinutes * focusFactor;
+    }, 0)
+  );
 
   // Parse metadata and extract DSA problems solved
   const parseMeta = (raw: string | null) => {
@@ -65,6 +73,9 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
     : sessions.map((s) => {
         const stars = "★".repeat(s.selfRating) + "☆".repeat(5 - s.selfRating);
         const meta = parseMeta(s.metadata);
+        const d = Number(meta.distractionLevel) || 3;
+        const focusPct = Math.round(((6 - d) / 5) * 100);
+        const effectiveMins = Math.round(s.durationMinutes * (6 - d) / 5);
         const parts: string[] = [];
         if (meta.count)      parts.push(`${meta.count} problems solved`);
         if (meta.problem)    parts.push(`problems: ${meta.problem}`);
@@ -72,6 +83,7 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
         if (meta.platform)   parts.push(`platform: ${meta.platform}`);
         if (meta.topic)      parts.push(`topic: ${meta.topic}`);
         if (meta.project)    parts.push(`project: ${meta.project}`);
+        parts.push(`focus: ${focusPct}% (${effectiveMins} effective min)`);
         const metaStr = parts.join(", ");
         return `- ${s.category.replace(/_/g," ")} | ${s.durationMinutes} min | ${stars} | ${s.notes}${metaStr ? ` (${metaStr})` : ""}`;
       }).join("\n");
@@ -117,7 +129,7 @@ function buildPrompt(ctx: Awaited<ReturnType<typeof gatherContext>>): string {
 
 The student is preparing for tech placements in India (DSA, GD, Mock Interviews, Projects, Current Affairs, Japanese, Communication, Reading).
 
-═══ TODAY'S SESSIONS (${totalMin} min total · ${sessions.length} session${sessions.length !== 1 ? "s" : ""} · ${dsaSummary}) ═══
+═══ TODAY'S SESSIONS (${totalMin} min logged · ${effectiveMin} min EFFECTIVE · ${sessions.length} session${sessions.length !== 1 ? "s" : ""} · ${dsaSummary}) ═══
 ${sessionsText}
 
 ═══ LAST 7 DAYS (recent avg: ${recentAvg !== null ? `${recentAvg}/100` : "N/A"}) ═══
@@ -139,21 +151,24 @@ DSA PROBLEMS SOLVED today (${totalDsaProblems}):
   10+ problems →  base DSA subscore 90–100
   Adjust up for Hard difficulty, down for Easy-only
 
-OVERALL SCORE formula (weighted):
-  DSA effort & problems (30%)  — volume × quality × problem count
-  Category breadth (20%)       — 1 cat = max 50%, 2 cats = 65%, 3+ cats = full marks
-  Target progress (20%)        — on-track = full, behind = deduct proportionally
-  Streaks maintained (15%)     — each active streak = +3 pts, each broken = -2 pts
-  Session quality (10%)        — self-rating average, notes specificity
-  Trend vs recent avg (5%)     — improving = bonus, declining = slight penalty
+CRITICAL: Score based on EFFECTIVE minutes (${effectiveMin}), NOT logged minutes (${totalMin}).
+Someone who logged 5 hours while distracted (→ 1 effective hour) scores LOWER than someone who did 1 focused hour.
 
-ROUGH BANDS:
-  90–100: Exceptional — multiple categories, targets hit, high problem count
-  75–89:  Strong — solid effort, good variety, mostly on track
-  60–74:  Good — meaningful work, 1-2 categories, slight target gap
-  45–59:  Decent — single-category focus, behind on targets
-  30–44:  Light — short sessions or minimal effort
-  0–29:   Off day — nothing logged or trivially short
+OVERALL SCORE formula (weighted):
+  DSA problems + effective time (30%) — effective_min × quality × problem count
+  Category breadth (20%)              — 1 cat = max 50%, 2 cats = 65%, 3+ cats = full marks
+  Target progress (20%)               — on-track = full, behind = deduct proportionally
+  Streaks maintained (15%)            — each active streak = +3 pts, each broken = -2 pts
+  Focus quality (10%)                 — avg focus level across sessions (fully focused = bonus)
+  Trend vs recent avg (5%)            — improving = bonus, declining = slight penalty
+
+ROUGH BANDS (based on EFFECTIVE time):
+  90–100: Exceptional — 3+ effective hours, multiple categories, targets hit
+  75–89:  Strong — 2+ effective hours, good variety, mostly on track
+  60–74:  Good — 60-120 effective minutes, solid focus, some breadth
+  45–59:  Decent — 30-60 effective minutes, single category
+  30–44:  Light — distracted most of session, minimal effective work
+  0–29:   Off day — nothing meaningful logged or near-zero effective time
 
 ═══ OUTPUT — raw JSON only, no markdown fences, no explanation ═══
 {

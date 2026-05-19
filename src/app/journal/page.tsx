@@ -34,12 +34,17 @@ const MOOD_EMOJI: Record<number, string> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface JournalEntry {
-  id:        string;
-  date:      string;
-  content:   string;
-  mood:      number;
-  energy:    number;
-  createdAt: string;
+  id:             string;
+  date:           string;
+  content:        string;
+  mood:           number;
+  energy:         number;
+  screenTimeMins: number | null;
+  pickupCount:    number | null;
+  weightKg:       number | null;
+  sleepHours:     number | null;
+  proteinGrams:   number | null;
+  createdAt:      string;
 }
 
 interface Analytics {
@@ -115,6 +120,13 @@ function TodayEntry({ onSaved }: { onSaved: (entry: JournalEntry) => void }) {
   const [content, setContent]     = useState("");
   const [mood, setMood]           = useState(3);
   const [energy, setEnergy]       = useState(3);
+  // Phone
+  const [screenTime, setScreen]   = useState("");
+  const [pickups, setPickups]     = useState("");
+  // Body
+  const [weight, setWeight]       = useState("");
+  const [sleep, setSleep]         = useState("");
+  const [protein, setProtein]     = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [loading, setLoading]     = useState(true);
   const [editing, setEditing]     = useState(false);
@@ -133,6 +145,11 @@ function TodayEntry({ onSaved }: { onSaved: (entry: JournalEntry) => void }) {
           setContent(today.content);
           setMood(today.mood);
           setEnergy(today.energy);
+          if (today.screenTimeMins) setScreen(String(today.screenTimeMins));
+          if (today.pickupCount)    setPickups(String(today.pickupCount));
+          if (today.weightKg)       setWeight(String(today.weightKg));
+          if (today.sleepHours)     setSleep(String(today.sleepHours));
+          if (today.proteinGrams)   setProtein(String(today.proteinGrams));
         }
       })
       .catch(console.error)
@@ -153,7 +170,14 @@ function TodayEntry({ onSaved }: { onSaved: (entry: JournalEntry) => void }) {
       const res = await fetch("/api/journal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, mood, energy }),
+        body: JSON.stringify({
+          content, mood, energy,
+          screenTimeMins: screenTime ? Number(screenTime) : null,
+          pickupCount:    pickups    ? Number(pickups)    : null,
+          weightKg:       weight     ? Number(weight)     : null,
+          sleepHours:     sleep      ? Number(sleep)      : null,
+          proteinGrams:   protein    ? Number(protein)    : null,
+        }),
       });
       if (!res.ok) throw new Error("Save failed");
       const saved: JournalEntry = await res.json();
@@ -243,6 +267,51 @@ function TodayEntry({ onSaved }: { onSaved: (entry: JournalEntry) => void }) {
         <div className="space-y-5 mb-6">
           <ScaleSelector label="Mood" value={mood} onChange={setMood} locked={isLocked} />
           <ScaleSelector label="Energy" value={energy} onChange={setEnergy} locked={isLocked} />
+        </div>
+
+        {/* Phone usage */}
+        <div className="mb-5">
+          <p className="text-[10px] uppercase tracking-widest text-ink/40 font-sans mb-3 flex items-center gap-1.5">
+            📱 Phone Usage <span className="text-ink/20">(optional)</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Screen time (min)", value: screenTime, set: setScreen, placeholder: "e.g. 180" },
+              { label: "Pickups / unlocks", value: pickups,    set: setPickups, placeholder: "e.g. 44" },
+            ].map(({ label, value, set, placeholder }) => (
+              <div key={label}>
+                <p className="text-[10px] text-ink/40 font-sans mb-1">{label}</p>
+                <input
+                  type="number" min="0" value={value} disabled={isLocked}
+                  onChange={(e) => set(e.target.value)} placeholder={placeholder}
+                  className="w-full bg-cream border border-mist rounded-xl px-3 py-2 text-sm font-mono text-ink placeholder:text-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 disabled:opacity-50"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Body metrics */}
+        <div className="mb-6">
+          <p className="text-[10px] uppercase tracking-widest text-ink/40 font-sans mb-3 flex items-center gap-1.5">
+            💪 Body <span className="text-ink/20">(optional)</span>
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Weight (kg)",  value: weight,  set: setWeight,  placeholder: "57.5",  step: "0.1" },
+              { label: "Sleep (hrs)",  value: sleep,   set: setSleep,   placeholder: "7.5",   step: "0.5" },
+              { label: "Protein (g)",  value: protein, set: setProtein, placeholder: "120",   step: "1" },
+            ].map(({ label, value, set, placeholder, step }) => (
+              <div key={label}>
+                <p className="text-[10px] text-ink/40 font-sans mb-1">{label}</p>
+                <input
+                  type="number" min="0" step={step} value={value} disabled={isLocked}
+                  onChange={(e) => set(e.target.value)} placeholder={placeholder}
+                  className="w-full bg-cream border border-mist rounded-xl px-3 py-2 text-sm font-mono text-ink placeholder:text-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 disabled:opacity-50"
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Save / Saved state */}

@@ -328,13 +328,20 @@ model Milestone {
 // ─── Journal ──────────────────────────────────────────────────────────────────
 
 model JournalEntry {
-  id        String   @id @default(cuid())
-  userId    String
-  date      DateTime
-  content   String
-  mood      Int
-  energy    Int
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime
+  content        String
+  mood           Int
+  energy         Int
+  // Phone usage
+  screenTimeMins Int?
+  pickupCount    Int?
+  // Body metrics
+  weightKg       Float?
+  sleepHours     Float?
+  proteinGrams   Int?
+  createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
