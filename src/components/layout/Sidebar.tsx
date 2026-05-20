@@ -19,6 +19,7 @@ const navItems = [
   { href: "/contests",   label: "Contests",   Icon: Swords,       desc: "CF contests"    },
   { href: "/leaderboard",   label: "Board",        Icon: Trophy,       desc: "Accountability" },
   { href: "/achievements",  label: "Achievements", Icon: Medal,        desc: "XP · Badges · Coins" },
+  { href: "/profile",      label: "Profile",      Icon: Zap,          desc: "Your public profile" },
   { href: "/topics",    label: "Topics",    Icon: BookOpen,     desc: "GD & Interview" },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen, desc: "Milestones"     },
   { href: "/streaks",   label: "Streaks",   Icon: Flame,      desc: "Consistency"    },

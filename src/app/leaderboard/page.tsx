@@ -249,7 +249,10 @@ export default function LeaderboardPage() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold font-sans text-ink truncate">{row.name}</p>
+                        <a href={row.isYou ? "/profile" : `/profile/${row.code.toLowerCase()}`}
+                          className="text-sm font-semibold font-sans text-ink truncate hover:text-sage transition-colors">
+                          {row.name}
+                        </a>
                         {row.isYou && <span className="text-[10px] bg-sage/15 text-sage px-2 py-0.5 rounded-full font-sans font-medium">You</span>}
                         <span className="text-[10px] font-mono text-ink/20 hidden sm:block">{row.code}</span>
                       </div>
