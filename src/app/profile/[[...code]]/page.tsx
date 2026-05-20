@@ -407,7 +407,8 @@ export default function ProfilePage({ params }: { params: Promise<{ code?: strin
 
   function copyLink() {
     if (!profile) return;
-    navigator.clipboard.writeText(`${window.location.origin}/profile/${profile.code.toLowerCase()}`);
+    // Copy the PUBLIC shareable link (works without login)
+    navigator.clipboard.writeText(`${window.location.origin}/p/${profile.code.toLowerCase()}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -448,11 +449,19 @@ export default function ProfilePage({ params }: { params: Promise<{ code?: strin
         {/* BG gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-sage/5 to-gold/5 pointer-events-none"/>
 
-        {/* Share button */}
-        <button onClick={copyLink}
-          className="absolute top-4 right-4 flex items-center gap-1.5 text-[11px] text-ink/30 hover:text-ink/60 font-sans transition-colors">
-          {copied ? <><Check size={12}/> Copied!</> : <><Copy size={12}/> Share</>}
-        </button>
+        {/* Share public profile */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <button onClick={copyLink}
+            className="flex items-center gap-1.5 text-[11px] text-ink/30 hover:text-sage font-sans transition-colors bg-cream rounded-xl px-2.5 py-1 border border-mist/60">
+            {copied ? <><Check size={11}/> Copied!</> : <><Copy size={11}/> Copy public link</>}
+          </button>
+        </div>
+        {profile.isOwn && (
+          <a href={`/p/${profile.code.toLowerCase()}`} target="_blank" rel="noopener noreferrer"
+            className="absolute top-10 right-4 text-[10px] text-sage/60 hover:text-sage font-sans transition-colors">
+            Preview public page →
+          </a>
+        )}
 
         {/* Avatar + name */}
         <div className="flex items-center gap-4 mb-5">
