@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Clock, Zap, Copy, Check, UserPlus, X, Trash2 } from "lucide-react";
+import { Flame, Clock, Zap, Copy, Check, UserPlus, X, Trash2, Gift } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -100,6 +100,62 @@ function AddFriendPanel({ onAdded }: { onAdded: (row: LeaderRow) => void }) {
         </motion.div>
       )}
     </div>
+  );
+}
+
+function GiftButton({ friendId, friendName }: { friendId: string; friendName: string }) {
+  const [open, setOpen]     = useState(false);
+  const [amount, setAmount] = useState(100);
+  const [msg, setMsg]       = useState("");
+  const [sending, setSend]  = useState(false);
+  const [sent, setSent]     = useState(false);
+
+  async function sendGift() {
+    setSend(true);
+    const res = await fetch("/api/coins/gift", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toUserId: friendId, amount, message: msg }),
+    });
+    if (res.ok) { setSent(true); setTimeout(() => { setSent(false); setOpen(false); setMsg(""); }, 2000); }
+    setSend(false);
+  }
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="p-1 text-ink/20 hover:text-amber-500 transition-colors" title="Send coins">
+        <Gift size={13}/>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+              className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]" onClick={() => setOpen(false)}/>
+            <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} exit={{opacity:0,y:16}}
+              className="fixed bottom-24 left-4 right-4 z-50 bg-white rounded-3xl p-5 shadow-2xl max-w-sm mx-auto">
+              <p className="font-serif text-base font-semibold text-ink mb-1">Gift {friendName}</p>
+              <div className="flex gap-2 mb-3">
+                {[50,100,200,500].map((a) => (
+                  <button key={a} onClick={() => setAmount(a)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-mono font-semibold transition-all ${amount === a ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-mist/40 text-ink/50"}`}>
+                    {a}🪙
+                  </button>
+                ))}
+              </div>
+              <input value={msg} onChange={(e) => setMsg(e.target.value.slice(0,50))} placeholder="Message (optional, 50 chars)"
+                className="w-full bg-cream border border-mist rounded-xl px-3 py-2 text-sm font-sans text-ink placeholder:text-ink/25 focus:outline-none mb-3"/>
+              <div className="flex gap-2">
+                <button onClick={() => setOpen(false)} className="flex-1 py-2.5 rounded-2xl border border-mist text-sm text-ink/50 font-sans">Cancel</button>
+                <button onClick={sendGift} disabled={sending || sent}
+                  className="flex-1 py-2.5 rounded-2xl bg-amber-500 text-white text-sm font-semibold font-sans disabled:opacity-50">
+                  {sent ? "Sent! 🎉" : sending ? "Sending…" : `Send ${amount}🪙`}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -214,11 +270,14 @@ export default function LeaderboardPage() {
                         <span className="text-base">{"🔥".repeat(Math.min(row.activeStreaks, 3))}</span>
                       )}
                       {!row.isYou && (
-                        <button onClick={() => removeFriend(row.id)}
-                          className="p-1 text-ink/15 hover:text-terracotta transition-colors"
-                          title="Remove friend">
-                          <Trash2 size={13}/>
-                        </button>
+                        <>
+                          <GiftButton friendId={row.id} friendName={row.name} />
+                          <button onClick={() => removeFriend(row.id)}
+                            className="p-1 text-ink/15 hover:text-terracotta transition-colors"
+                            title="Remove friend">
+                            <Trash2 size={13}/>
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

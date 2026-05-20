@@ -718,6 +718,34 @@ function RecommendationCard({ recommendation, loading }: {
 
 // ─── Dashboard (main) ─────────────────────────────────────────────────────────
 
+function XpMiniBar() {
+  const [xp, setXp] = useState<{ level: number; levelTitle: string; levelProgress: { pct: number }; weeklyXp: number; coins: number; league: { emoji: string; name: string } } | null>(null);
+  useEffect(() => {
+    fetch("/api/xp").then((r) => r.json()).then(setXp).catch(() => {});
+  }, []);
+  if (!xp) return null;
+  return (
+    <a href="/achievements" className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 mb-4 shadow-[0_2px_8px_rgba(45,42,38,0.06)] hover:shadow-[0_4px_16px_rgba(45,42,38,0.10)] transition-shadow">
+      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold/20 to-sage/20 flex items-center justify-center shrink-0">
+        <span className="text-sm font-serif font-bold text-ink">{xp.level}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold font-sans text-ink">{xp.levelTitle}</p>
+          <p className="text-[10px] font-sans text-ink/40">{xp.league.emoji} {xp.league.name}</p>
+        </div>
+        <div className="h-1.5 bg-mist rounded-full overflow-hidden">
+          <div className="h-full rounded-full bg-gradient-to-r from-sage to-gold" style={{ width: `${xp.levelProgress.pct}%` }} />
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-[10px] font-mono font-semibold text-amber-500">{xp.coins}🪙</p>
+        <p className="text-[9px] text-ink/30 font-sans">{xp.weeklyXp} XP/wk</p>
+      </div>
+    </a>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useCurrentUser();
   const [data, setData]       = useState<DashboardData | null>(null);
@@ -752,6 +780,7 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <GreetingSection user={user} nudge={nudge} loading={loading && recsLoading} />
+      <XpMiniBar />
       <ScoreCard
         report={dailyReport} last7={last7Scores} loading={loading}
         onRefresh={() => {

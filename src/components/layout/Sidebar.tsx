@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame, CalendarDays, Briefcase, Trophy, Code2, Scroll, Swords, FileText, SmartphoneNfc } from "lucide-react";
+import { Target, Timer, BarChart2, BookOpen, Settings, Zap, FolderOpen, Flame, CalendarDays, Briefcase, Trophy, Code2, Scroll, Swords, FileText, SmartphoneNfc, Medal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -17,7 +17,8 @@ const navItems = [
   { href: "/skills",     label: "Skills",     Icon: Code2,        desc: "DSA skill map"  },
   { href: "/timeline",   label: "Timeline",   Icon: Scroll,       desc: "Your journey"   },
   { href: "/contests",   label: "Contests",   Icon: Swords,       desc: "CF contests"    },
-  { href: "/leaderboard",label: "Board",      Icon: Trophy,       desc: "Accountability" },
+  { href: "/leaderboard",   label: "Board",        Icon: Trophy,       desc: "Accountability" },
+  { href: "/achievements",  label: "Achievements", Icon: Medal,        desc: "XP · Badges · Coins" },
   { href: "/topics",    label: "Topics",    Icon: BookOpen,     desc: "GD & Interview" },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen, desc: "Milestones"     },
   { href: "/streaks",   label: "Streaks",   Icon: Flame,      desc: "Consistency"    },

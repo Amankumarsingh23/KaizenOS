@@ -75,19 +75,50 @@ export async function POST(req: NextRequest) {
     data: { currentValue: { increment: 1 } },
   });
 
-  // Use next/server `after` so Vercel keeps the function alive after response is sent
-  if (process.env.GROQ_API_KEY) {
-    const uid = userId;
-    after(async () => {
+  // ── Award XP + Coins synchronously (quick DB write) ──────────────────────
+  try {
+    const { calculateSessionXP, streakMilestoneBonus } = await import("@/lib/xp");
+    const { xp, coins } = calculateSessionXP(studySession);
+    await db.user.update({ where: { id: userId }, data: { xp: { increment: xp }, coins: { increment: coins } } });
+    // Weekly XP for league
+    const { startOfWeek } = await import("date-fns");
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    await db.weeklyXp.upsert({
+      where:  { userId_weekStart: { userId, weekStart } },
+      update: { xp: { increment: xp } },
+      create: { userId, weekStart, xp },
+    });
+    // Streak milestone bonus
+    const streakRow = await db.streak.findUnique({ where: { userId_category: { userId, category } } });
+    const bonus = streakMilestoneBonus(streakRow?.currentStreak ?? 0);
+    if (bonus) {
+      await db.user.update({ where: { id: userId }, data: { xp: { increment: bonus.xp }, coins: { increment: bonus.coins } } });
+      await db.weeklyXp.update({ where: { userId_weekStart: { userId, weekStart } }, data: { xp: { increment: bonus.xp } } });
+    }
+  } catch (err) {
+    console.error("[xp] award failed:", err);
+  }
+
+  // Use next/server `after` for background tasks after response is sent
+  const uid = userId;
+  after(async () => {
+    // Badge checking
+    try {
+      const { checkAndAwardBadges } = await import("@/lib/badges");
+      const newBadges = await checkAndAwardBadges(uid);
+      if (newBadges.length) console.log("[badges] awarded:", newBadges.map((b) => b.id).join(", "));
+    } catch (err) { console.error("[badges] check failed:", err); }
+
+    // AI daily report
+    if (process.env.GROQ_API_KEY) {
       try {
         const { generateDailyReport } = await import("@/lib/ai/generateDailyReport");
         await generateDailyReport(uid);
-        console.log("[auto-report] done for", uid);
       } catch (err: unknown) {
         console.error("[auto-report] failed:", err instanceof Error ? err.message : err);
       }
-    });
-  }
+    }
+  });
 
   return NextResponse.json(studySession, { status: 201 });
 }

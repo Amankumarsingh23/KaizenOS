@@ -76,6 +76,8 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  xp            Int       @default(0)
+  coins         Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -100,6 +102,39 @@ model User {
   contestReminders   ContestReminder[]
   weeklyReports      WeeklyReport[]
   phoneUsageLogs     PhoneUsageLog[]
+  earnedBadges       EarnedBadge[]
+  sentCoins          CoinTransaction[] @relation("SentCoins")
+  receivedCoins      CoinTransaction[] @relation("ReceivedCoins")
+  weeklyXp           WeeklyXp[]
+}
+
+model EarnedBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, badgeId])
+}
+
+model CoinTransaction {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  amount     Int
+  message    String?
+  createdAt  DateTime @default(now())
+  fromUser   User     @relation("SentCoins",    fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("ReceivedCoins", fields: [toUserId],   references: [id], onDelete: Cascade)
+}
+
+model WeeklyXp {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart DateTime
+  xp        Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, weekStart])
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
@@ -115,9 +150,11 @@ model UserSettings {
   eveningTime      String  @default("21:00")
   weeklySchedule   String?  // JSON: { "1": ["DSA","GD"], "2": [...], ... }
   githubUsername   String?
-  cfHandle         String?
-  lcHandle         String?
-  isPublic         Boolean @default(false)
+  cfHandle            String?
+  lcHandle            String?
+  isPublic            Boolean  @default(false)
+  streakFreezeCount   Int      @default(0)
+  lastFreezeEarnedAt  DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
