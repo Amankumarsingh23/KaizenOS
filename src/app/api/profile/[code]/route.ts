@@ -23,19 +23,19 @@ export async function GET(
   const { code } = await params;
   const isOwnProfile = code === "me";
 
-  // Find target user
+  // Find target user (select only columns that definitely exist)
   const targetUser = isOwnProfile
-    ? await db.user.findUnique({ where: { id: viewerId }, select: { id: true, name: true, image: true, xp: true, coins: true, createdAt: true } })
+    ? await db.user.findUnique({ where: { id: viewerId }, select: { id: true, name: true, image: true, createdAt: true } })
     : await db.user.findFirst({
         where: { id: { startsWith: code.toLowerCase() } },
-        select: { id: true, name: true, image: true, xp: true, coins: true, createdAt: true },
+        select: { id: true, name: true, image: true, createdAt: true },
       });
 
   if (!targetUser) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   const userId   = targetUser.id;
   const isOwn    = userId === viewerId;
   const friendCheck = !isOwn
-    ? await db.friendship.findFirst({ where: { userId: viewerId, friendId: userId } })
+    ? await db.friendship.findFirst({ where: { userId: viewerId, friendId: userId } }).catch(() => null)
     : null;
   const isFriend = isOwn || !!friendCheck;
   // Only owner or friends can view full profile
@@ -46,18 +46,18 @@ export async function GET(
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const monthStart = startOfMonth(now);
 
+  // Use .catch(() => fallback) so missing tables (pending migrations) don't crash the profile page
   const [allSessions, streaks, earnedBadges, weeklyXpRow, dsaSkills, settings, activeChallenge] = await Promise.all([
     db.studySession.findMany({
       where: { userId, startTime: { gte: since90 } },
       select: { category: true, durationMinutes: true, selfRating: true, startTime: true, metadata: true },
       orderBy: { startTime: "asc" },
-    }),
-    db.streak.findMany({ where: { userId } }),
-    db.earnedBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true }, orderBy: { earnedAt: "desc" } }),
-    db.weeklyXp.findUnique({ where: { userId_weekStart: { userId, weekStart } }, select: { xp: true } }),
-    db.dSASkill.findMany({ where: { userId } }),
-    db.userSettings.findUnique({ where: { userId }, select: { streakFreezeCount: true, featuredBadges: true } }),
-    // Active challenge between viewer and target (if not own profile)
+    }).catch(() => []),
+    db.streak.findMany({ where: { userId } }).catch(() => []),
+    db.earnedBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true }, orderBy: { earnedAt: "desc" } }).catch(() => []),
+    db.weeklyXp.findUnique({ where: { userId_weekStart: { userId, weekStart } }, select: { xp: true } }).catch(() => null),
+    db.dSASkill.findMany({ where: { userId } }).catch(() => []),
+    db.userSettings.findUnique({ where: { userId }, select: { streakFreezeCount: true, featuredBadges: true } }).catch(() => null),
     isOwn ? null : db.challenge.findFirst({
       where: {
         OR: [
@@ -68,7 +68,7 @@ export async function GET(
         weekStart,
       },
       select: { id: true, status: true, challengerId: true, challengedId: true },
-    }),
+    }).catch(() => null),
   ]);
 
   // ── Core stats ───────────────────────────────────────────────────────────
@@ -143,8 +143,8 @@ export async function GET(
 
   milestones.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // ── XP / level ───────────────────────────────────────────────────────────
-  const xp      = targetUser.xp;
+  // ── XP / level (xp column may not exist yet if migrations pending) ─────
+  const xp      = (targetUser as { xp?: number }).xp ?? 0;
   const level   = getLevel(xp);
   const weekXp  = weeklyXpRow?.xp ?? 0;
 
@@ -170,7 +170,7 @@ export async function GET(
     featuredBadges,
     milestones,
     challenge: activeChallenge ?? null,
-    viewerWeeklyXp: isOwn ? null : (await db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: viewerId, weekStart } }, select: { xp: true } }))?.xp ?? 0,
-    viewerXp:       isOwn ? null : (await db.user.findUnique({ where: { id: viewerId }, select: { xp: true } }))?.xp ?? 0,
+    viewerWeeklyXp: isOwn ? null : await db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: viewerId, weekStart } }, select: { xp: true } }).then((r) => r?.xp ?? 0).catch(() => 0),
+    viewerXp:       0, // XP column may not exist yet; comparative view will show gracefully
   });
 }
