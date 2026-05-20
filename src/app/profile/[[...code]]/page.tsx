@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import {
   Flame, Clock, Star, TrendingUp, ChevronLeft,
-  Pin, Share2, Copy, Check,
+  Copy, Check, Swords, CheckCircle2, XCircle, BarChart2, Pin,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface BadgeItem { id: string; name: string; emoji: string; rarity: string; earnedAt: string; featured?: boolean; }
 interface ProfileData {
   userId: string; name: string; image: string | null; code: string; isOwn: boolean;
   xp: number; level: number; levelTitle: string;
@@ -24,8 +25,12 @@ interface ProfileData {
   heatmap: { date: string; count: number; dow: number }[];
   topCategories: { cat: string; hours: number }[];
   dsaMap: { topic: string; level: number }[];
-  badges: { id: string; name: string; emoji: string; rarity: string; earnedAt: string }[];
+  badges: BadgeItem[];
+  featuredBadges: BadgeItem[];
   milestones: { date: string; label: string }[];
+  challenge: { id: string; status: string; challengerId: string; challengedId: string } | null;
+  viewerWeeklyXp: number | null;
+  viewerXp: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,6 +55,169 @@ function Avatar({ name, image, size = 72 }: { name: string; image: string | null
     <div className="rounded-full ring-4 ring-white bg-gradient-to-br from-gold to-sage flex items-center justify-center text-white font-serif font-bold"
       style={{ width: size, height: size, fontSize: size * 0.38 }}>
       {name[0]?.toUpperCase()}
+    </div>
+  );
+}
+
+// ─── Challenge Button ─────────────────────────────────────────────────────────
+
+function ChallengeSection({ profile, onUpdate }: {
+  profile: ProfileData;
+  onUpdate: (c: ProfileData["challenge"]) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const { challenge } = profile;
+
+  async function sendChallenge() {
+    setLoading(true);
+    const res = await fetch("/api/challenges", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ challengedId: profile.userId }),
+    });
+    if (res.ok) onUpdate(await res.json());
+    setLoading(false);
+  }
+
+  async function respond(action: "accept" | "decline") {
+    if (!challenge) return;
+    setLoading(true);
+    const res = await fetch("/api/challenges", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ challengeId: challenge.id, action }),
+    });
+    if (res.ok) onUpdate({ ...challenge, status: action === "accept" ? "ACTIVE" : "DECLINED" });
+    setLoading(false);
+  }
+
+  if (!challenge) return (
+    <motion.button onClick={sendChallenge} disabled={loading} whileTap={{ scale: 0.97 }}
+      className="w-full flex items-center justify-center gap-2 bg-ink text-cream rounded-2xl py-3.5 text-sm font-semibold font-sans mb-4 shadow-[0_2px_12px_rgba(45,42,38,0.20)] hover:bg-ink/90 transition-colors disabled:opacity-40">
+      <Swords size={16} /> {loading ? "Challenging…" : `⚔️ Challenge ${profile.name.split(" ")[0]}`}
+    </motion.button>
+  );
+
+  if (challenge.status === "PENDING") {
+    const iAmChallenger = challenge.challengerId !== profile.userId;
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+        <p className="text-sm font-semibold text-ink font-sans mb-1">
+          {iAmChallenger ? "Challenge sent! Waiting for response…" : `${profile.name.split(" ")[0]} challenged you!`}
+        </p>
+        <p className="text-xs text-ink/50 font-sans mb-3">7-day XP battle — whoever earns more XP this week wins</p>
+        {!iAmChallenger && (
+          <div className="flex gap-2">
+            <button onClick={() => respond("decline")} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-mist text-sm text-ink/50 font-sans">
+              <XCircle size={13}/> Decline
+            </button>
+            <button onClick={() => respond("accept")} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-sage text-white text-sm font-semibold font-sans shadow-[0_2px_8px_rgba(107,143,113,0.30)]">
+              <CheckCircle2 size={13}/> Accept
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (challenge.status === "ACTIVE") return (
+    <div className="bg-sage/8 border border-sage/20 rounded-2xl p-4 mb-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Swords size={15} className="text-sage"/>
+        <p className="text-sm font-semibold text-sage font-sans">Active Challenge ⚔️</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: "You", xp: profile.viewerWeeklyXp ?? 0, isLeading: (profile.viewerWeeklyXp ?? 0) >= profile.weeklyXp },
+          { label: profile.name.split(" ")[0], xp: profile.weeklyXp, isLeading: profile.weeklyXp >= (profile.viewerWeeklyXp ?? 0) },
+        ].map(({ label, xp, isLeading }) => (
+          <div key={label} className={`rounded-xl p-3 text-center border ${isLeading ? "bg-sage/10 border-sage/30" : "bg-mist/30 border-mist"}`}>
+            <p className="text-[10px] text-ink/40 font-sans">{label}</p>
+            <p className={`font-serif text-xl font-bold ${isLeading ? "text-sage" : "text-ink/50"}`}>{xp} XP</p>
+            {isLeading && <p className="text-[9px] text-sage font-sans">Leading ⚡</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+// ─── Comparative View ─────────────────────────────────────────────────────────
+
+function ComparativeView({ profile }: { profile: ProfileData }) {
+  if (profile.isOwn || profile.viewerXp === null) return null;
+
+  const rows = [
+    { label: "Total XP",     mine: profile.viewerXp ?? 0,       theirs: profile.xp,           suffix: "XP" },
+    { label: "Weekly XP",    mine: profile.viewerWeeklyXp ?? 0, theirs: profile.weeklyXp,      suffix: "XP" },
+    { label: "Total Sessions",mine: 0,                           theirs: profile.totalSessions, suffix: "" },
+    { label: "Study Hours",  mine: 0,                           theirs: profile.totalHours,    suffix: "h" },
+    { label: "Badges",       mine: 0,                           theirs: profile.badges.length, suffix: "" },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(45,42,38,0.06)] mb-4">
+      <div className="flex items-center gap-2 mb-4">
+        <BarChart2 size={14} className="text-ink/40"/>
+        <p className="text-sm font-semibold text-ink font-sans">Compare</p>
+      </div>
+      <div className="space-y-3">
+        {rows.filter(r => r.theirs > 0).map(({ label, mine, theirs, suffix }) => {
+          const max     = Math.max(mine, theirs, 1);
+          const iAhead  = mine > theirs;
+          const theyAhead = theirs > mine;
+          return (
+            <div key={label}>
+              <div className="flex items-center justify-between text-[10px] text-ink/40 font-sans mb-1">
+                <span className={mine > 0 ? (iAhead ? "text-sage font-medium" : "") : "text-ink/20"}>You {mine > 0 ? `${mine}${suffix}` : "?"}</span>
+                <span className="font-medium text-ink/60">{label}</span>
+                <span className={theyAhead ? "text-terracotta font-medium" : ""}>{theirs}{suffix}</span>
+              </div>
+              <div className="flex gap-1 h-2">
+                {mine > 0 && (
+                  <motion.div initial={{width:0}} animate={{width:`${(mine/max)*50}%`}} transition={{duration:0.6}}
+                    className={`h-full rounded-l-full ${iAhead ? "bg-sage" : "bg-mist"}`}/>
+                )}
+                <div className="w-px bg-ink/10 shrink-0"/>
+                <motion.div initial={{width:0}} animate={{width:`${(theirs/max)*50}%`}} transition={{duration:0.6}}
+                  className={`h-full rounded-r-full ${theyAhead ? "bg-terracotta" : "bg-mist"}`}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[9px] text-ink/20 font-sans mt-3 text-center">Your session data will show after you log some sessions</p>
+    </div>
+  );
+}
+
+// ─── Featured Badges ──────────────────────────────────────────────────────────
+
+function FeaturedBadgesRow({ badges, isOwn, onToggle }: {
+  badges: BadgeItem[]; isOwn: boolean; onToggle?: (id: string) => void;
+}) {
+  if (badges.length === 0 && !isOwn) return null;
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Pin size={11} className="text-gold"/>
+        <p className="text-[10px] uppercase tracking-widest text-ink/40 font-sans">Featured</p>
+        {isOwn && <p className="text-[9px] text-ink/25 font-sans ml-auto">Pin from Achievements</p>}
+      </div>
+      <div className="flex gap-3">
+        {badges.length > 0 ? badges.map((b) => (
+          <div key={b.id} className="flex flex-col items-center gap-1">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gold/15 to-sage/15 border border-gold/20 flex items-center justify-center text-3xl shadow-[0_2px_8px_rgba(196,163,90,0.15)]">
+              {b.emoji}
+            </div>
+            <p className="text-[9px] font-sans text-ink/50 text-center max-w-14 leading-tight">{b.name}</p>
+          </div>
+        )) : (
+          <p className="text-xs text-ink/25 font-sans italic">No featured badges — pin your favorites in Achievements</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -225,6 +393,7 @@ export default function ProfilePage({ params }: { params: Promise<{ code?: strin
   const [loading, setLoading]   = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied]     = useState(false);
+  const [showCompare, setCompare] = useState(false);
 
   useEffect(() => {
     fetch(`/api/profile/${code}`)
@@ -370,7 +539,31 @@ export default function ProfilePage({ params }: { params: Promise<{ code?: strin
       {/* ── Streaks ──────────────────────────────────────────────────────── */}
       <StreaksSection streaks={profile.streaks} />
 
-      {/* ── Badges ───────────────────────────────────────────────────────── */}
+      {/* ── Challenge button (friend profiles only) ──────────────────────── */}
+      {!profile.isOwn && (
+        <ChallengeSection
+          profile={profile}
+          onUpdate={(c) => setProfile((p) => p ? { ...p, challenge: c } : p)}
+        />
+      )}
+
+      {/* ── Compare toggle (friend profiles only) ────────────────────────── */}
+      {!profile.isOwn && (
+        <button onClick={() => setCompare((v) => !v)}
+          className="w-full flex items-center justify-center gap-2 border border-mist rounded-2xl py-2.5 text-xs font-sans text-ink/40 hover:text-ink/60 hover:border-ink/20 transition-all mb-4">
+          <BarChart2 size={13}/>
+          {showCompare ? "Hide comparison" : "Compare stats side by side"}
+        </button>
+      )}
+      {showCompare && <ComparativeView profile={profile} />}
+
+      {/* ── Featured badges ───────────────────────────────────────────────── */}
+      <FeaturedBadgesRow
+        badges={profile.featuredBadges ?? []}
+        isOwn={profile.isOwn}
+      />
+
+      {/* ── All badges ───────────────────────────────────────────────────── */}
       <BadgesSection badges={profile.badges} isOwn={profile.isOwn} />
 
       {/* ── DSA Skill Map ────────────────────────────────────────────────── */}

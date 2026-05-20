@@ -46,7 +46,7 @@ export async function GET(
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const monthStart = startOfMonth(now);
 
-  const [allSessions, streaks, earnedBadges, weeklyXpRow, dsaSkills, settings] = await Promise.all([
+  const [allSessions, streaks, earnedBadges, weeklyXpRow, dsaSkills, settings, activeChallenge] = await Promise.all([
     db.studySession.findMany({
       where: { userId, startTime: { gte: since90 } },
       select: { category: true, durationMinutes: true, selfRating: true, startTime: true, metadata: true },
@@ -56,7 +56,19 @@ export async function GET(
     db.earnedBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true }, orderBy: { earnedAt: "desc" } }),
     db.weeklyXp.findUnique({ where: { userId_weekStart: { userId, weekStart } }, select: { xp: true } }),
     db.dSASkill.findMany({ where: { userId } }),
-    db.userSettings.findUnique({ where: { userId }, select: { streakFreezeCount: true } }),
+    db.userSettings.findUnique({ where: { userId }, select: { streakFreezeCount: true, featuredBadges: true } }),
+    // Active challenge between viewer and target (if not own profile)
+    isOwn ? null : db.challenge.findFirst({
+      where: {
+        OR: [
+          { challengerId: viewerId, challengedId: userId },
+          { challengerId: userId, challengedId: viewerId },
+        ],
+        status: { in: ["PENDING", "ACTIVE"] },
+        weekStart,
+      },
+      select: { id: true, status: true, challengerId: true, challengedId: true },
+    }),
   ]);
 
   // ── Core stats ───────────────────────────────────────────────────────────
@@ -104,12 +116,16 @@ export async function GET(
     };
   }).sort((a, b) => (b.active ? 1 : -1) || b.current - a.current);
 
-  // ── Badges ───────────────────────────────────────────────────────────────
-  const earnedSet = new Map(earnedBadges.map((b) => [b.badgeId, b.earnedAt]));
-  const badges    = ALL_BADGES
+  // ── Badges + featured ────────────────────────────────────────────────────
+  const earnedSet    = new Map(earnedBadges.map((b) => [b.badgeId, b.earnedAt]));
+  const featuredIds: string[] = JSON.parse(settings?.featuredBadges ?? "[]");
+  const badges       = ALL_BADGES
     .filter((b) => earnedSet.has(b.id))
-    .map((b) => ({ ...b, earnedAt: earnedSet.get(b.id)! }))
+    .map((b) => ({ ...b, earnedAt: earnedSet.get(b.id)!, featured: featuredIds.includes(b.id) }))
     .sort((a, b) => new Date(b.earnedAt).getTime() - new Date(a.earnedAt).getTime());
+  const featuredBadges = featuredIds
+    .map((id) => badges.find((b) => b.id === id))
+    .filter(Boolean);
 
   // ── Journey milestones ───────────────────────────────────────────────────
   const milestones: { date: string; label: string }[] = [];
@@ -151,6 +167,10 @@ export async function GET(
     topCategories,
     dsaMap,
     badges,
+    featuredBadges,
     milestones,
+    challenge: activeChallenge ?? null,
+    viewerWeeklyXp: isOwn ? null : (await db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: viewerId, weekStart } }, select: { xp: true } }))?.xp ?? 0,
+    viewerXp:       isOwn ? null : (await db.user.findUnique({ where: { id: viewerId }, select: { xp: true } }))?.xp ?? 0,
   });
 }

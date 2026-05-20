@@ -105,7 +105,26 @@ model User {
   earnedBadges       EarnedBadge[]
   sentCoins          CoinTransaction[] @relation("SentCoins")
   receivedCoins      CoinTransaction[] @relation("ReceivedCoins")
-  weeklyXp           WeeklyXp[]
+  weeklyXp            WeeklyXp[]
+  sentChallenges      Challenge[] @relation("SentChallenges")
+  receivedChallenges  Challenge[] @relation("ReceivedChallenges")
+}
+
+// ─── Challenges ───────────────────────────────────────────────────────────────
+
+model Challenge {
+  id           String   @id @default(cuid())
+  challengerId String
+  challengedId String
+  weekStart    DateTime
+  status       String   @default("PENDING") // PENDING ACTIVE COMPLETED DECLINED
+  winnerUserId String?
+  createdAt    DateTime @default(now())
+
+  challenger User @relation("SentChallenges",     fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged User @relation("ReceivedChallenges", fields: [challengedId], references: [id], onDelete: Cascade)
+
+  @@unique([challengerId, challengedId, weekStart])
 }
 
 model EarnedBadge {
@@ -155,6 +174,7 @@ model UserSettings {
   isPublic            Boolean  @default(false)
   streakFreezeCount   Int      @default(0)
   lastFreezeEarnedAt  DateTime?
+  featuredBadges      String?  // JSON: [badgeId, badgeId, badgeId] max 3
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

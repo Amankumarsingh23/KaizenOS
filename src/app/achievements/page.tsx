@@ -90,6 +90,19 @@ function XpCard({ data }: { data: XpData }) {
 
 function BadgeGrid({ badges }: { badges: BadgeWithStatus[] }) {
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [featured, setFeatured]             = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/badges/featured").then((r) => r.json()).then(setFeatured).catch(() => {});
+  }, []);
+
+  async function toggleFeatured(badgeId: string) {
+    const res = await fetch("/api/badges/featured", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ badgeId }),
+    });
+    if (res.ok) setFeatured(await res.json());
+  }
 
   const filtered = activeCategory === "all"
     ? badges
@@ -119,14 +132,29 @@ function BadgeGrid({ badges }: { badges: BadgeWithStatus[] }) {
         ))}
       </div>
 
+      {/* Featured hint */}
+      {featured.length > 0 && (
+        <p className="text-[10px] text-gold font-sans mb-3">📌 {featured.length}/3 pinned to profile · tap 📌 to unpin</p>
+      )}
+      {featured.length === 0 && <p className="text-[10px] text-ink/25 font-sans mb-3">Tap 📌 on any earned badge to feature it on your profile (max 3)</p>}
+
       {/* Badge grid */}
       <div className="grid grid-cols-3 gap-3">
-        {filtered.map((b, i) => (
+        {filtered.map((b, i) => {
+          const isPinned = featured.includes(b.id);
+          return (
           <motion.div key={b.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.03 }}
-            className={`rounded-2xl border p-3 text-center transition-all ${
+            className={`rounded-2xl border p-3 text-center transition-all relative ${
               b.earned ? RARITY_COLORS[b.rarity] : "border-mist/40 bg-mist/10 opacity-40"
-            }`}>
+            } ${isPinned ? "ring-2 ring-gold/40" : ""}`}>
+            {b.earned && (
+              <button onClick={() => toggleFeatured(b.id)}
+                className="absolute top-1.5 right-1.5 text-[11px] opacity-50 hover:opacity-100 transition-opacity"
+                title={isPinned ? "Unpin" : "Pin to profile"}>
+                📌
+              </button>
+            )}
             <div className={`text-2xl mb-1 ${!b.earned ? "grayscale" : ""}`}>{b.emoji}</div>
             <p className="text-[10px] font-semibold font-sans text-ink leading-tight">{b.name}</p>
             <p className={`text-[9px] font-sans mt-0.5 ${RARITY_LABEL_COLORS[b.rarity]}`}>
@@ -141,7 +169,8 @@ function BadgeGrid({ badges }: { badges: BadgeWithStatus[] }) {
               <p className="text-[8px] text-ink/25 font-sans mt-0.5 line-clamp-1">{b.description}</p>
             )}
           </motion.div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
