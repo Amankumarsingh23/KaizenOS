@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Clock, Zap, Copy, Check, UserPlus, X, Trash2, Gift } from "lucide-react";
+import { Flame, Clock, Zap, Copy, Check, UserPlus, X, Trash2, Gift, Swords, CheckCircle2, XCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -159,7 +159,205 @@ function GiftButton({ friendId, friendName }: { friendId: string; friendName: st
   );
 }
 
+// ─── Challenges Tab ───────────────────────────────────────────────────────────
+
+interface Challenge {
+  id: string; status: string; isChallenger: boolean;
+  challengerXp: number; challengedXp: number;
+  challenger: { id: string; name: string | null; image: string | null };
+  challenged: { id: string; name: string | null; image: string | null };
+}
+
+function ChallengesTab({ friends }: { friends: LeaderRow[] }) {
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [challenging, setChallenging] = useState<string | null>(null);
+  const [actionId, setActionId]     = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/challenges")
+      .then((r) => r.json())
+      .then((d) => setChallenges(Array.isArray(d) ? d : []))
+      .catch(() => setChallenges([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function sendChallenge(friendId: string) {
+    setChallenging(friendId);
+    const res = await fetch("/api/challenges", {
+      method: "POST", headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ challengedId: friendId }),
+    });
+    if (res.ok) {
+      const c = await res.json();
+      setChallenges((prev) => [{ ...c, isChallenger: true, challengerXp: 0, challengedXp: 0 }, ...prev]);
+    }
+    setChallenging(null);
+  }
+
+  async function respond(challengeId: string, action: "accept" | "decline") {
+    setActionId(challengeId);
+    const res = await fetch("/api/challenges", {
+      method: "PATCH", headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ challengeId, action }),
+    });
+    if (res.ok) {
+      setChallenges((prev) => prev.map((c) =>
+        c.id === challengeId ? { ...c, status: action === "accept" ? "ACTIVE" : "DECLINED" } : c
+      ).filter((c) => c.status !== "DECLINED"));
+    }
+    setActionId(null);
+  }
+
+  const pending  = challenges.filter((c) => c.status === "PENDING" && !c.isChallenger);
+  const sent     = challenges.filter((c) => c.status === "PENDING" && c.isChallenger);
+  const active   = challenges.filter((c) => c.status === "ACTIVE");
+
+  // Friends who can be challenged (not in an active/pending challenge already)
+  const activeChallengedIds = new Set(challenges.flatMap((c) => [c.challenger.id, c.challenged.id]));
+  const challengeable = friends.filter((f) => !f.isYou && !activeChallengedIds.has(f.id));
+
+  if (loading) return (
+    <div className="space-y-3">{[0,1,2].map((i) => <div key={i} className="h-20 bg-white rounded-2xl animate-pulse"/>)}</div>
+  );
+
+  return (
+    <div className="space-y-5">
+      {/* Pending received */}
+      {pending.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-terracotta font-sans font-medium mb-3">
+            ⚔️ Challenges received ({pending.length})
+          </p>
+          <div className="space-y-3">
+            {pending.map((c) => (
+              <motion.div key={c.id} initial={{opacity:0,y:6}} animate={{opacity:1,y:0}}
+                className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Avatar name={c.challenger.name ?? "?"} image={c.challenger.image} size={36}/>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold font-sans text-ink">{c.challenger.name ?? "Someone"} challenged you!</p>
+                    <p className="text-xs text-ink/40 font-sans">7-day XP duel · whoever earns more XP wins</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => respond(c.id, "decline")} disabled={actionId === c.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-mist text-xs text-ink/50 font-sans hover:border-terracotta/30 hover:text-terracotta transition-colors">
+                    <XCircle size={12}/> Decline
+                  </button>
+                  <button onClick={() => respond(c.id, "accept")} disabled={actionId === c.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-sage text-white text-xs font-semibold font-sans shadow-[0_2px_8px_rgba(107,143,113,0.30)] hover:bg-sage/90 transition-colors">
+                    <CheckCircle2 size={12}/> Accept ⚔️
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active challenges */}
+      {active.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-sage font-sans font-medium mb-3">
+            🔥 Active duels ({active.length})
+          </p>
+          <div className="space-y-3">
+            {active.map((c) => {
+              const myXp     = c.isChallenger ? c.challengerXp : c.challengedXp;
+              const theirXp  = c.isChallenger ? c.challengedXp : c.challengerXp;
+              const opponent = c.isChallenger ? c.challenged : c.challenger;
+              const maxXp    = Math.max(myXp, theirXp, 1);
+              const leading  = myXp >= theirXp;
+              return (
+                <div key={c.id} className={`bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(45,42,38,0.06)] border ${leading ? "border-sage/20" : "border-terracotta/15"}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Swords size={14} className={leading ? "text-sage" : "text-terracotta"}/>
+                    <p className="text-xs font-semibold font-sans text-ink">vs {opponent.name ?? "Friend"}</p>
+                    <span className={`ml-auto text-[10px] font-sans font-medium ${leading ? "text-sage" : "text-terracotta"}`}>
+                      {leading ? "You're leading ⚡" : "They're ahead 🔥"}
+                    </span>
+                  </div>
+                  {/* XP bars */}
+                  <div className="space-y-2">
+                    {[
+                      { label: "You", xp: myXp, color: "bg-sage", leading: myXp >= theirXp },
+                      { label: opponent.name?.split(" ")[0] ?? "Friend", xp: theirXp, color: "bg-terracotta", leading: theirXp >= myXp },
+                    ].map(({ label, xp, color, leading: l }) => (
+                      <div key={label}>
+                        <div className="flex justify-between text-[10px] text-ink/40 font-sans mb-1">
+                          <span className={l ? "font-semibold text-ink/70" : ""}>{label}</span>
+                          <span className="font-mono">{xp} XP</span>
+                        </div>
+                        <div className="h-2 bg-mist/40 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{width:0}} animate={{width:`${(xp/maxXp)*100}%`}}
+                            className={`h-full rounded-full ${color} opacity-70`}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sent (waiting) */}
+      {sent.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-ink/40 font-sans font-medium mb-3">Waiting for response</p>
+          <div className="space-y-2">
+            {sent.map((c) => (
+              <div key={c.id} className="bg-white rounded-2xl p-3 shadow-[0_1px_4px_rgba(45,42,38,0.06)] flex items-center gap-3">
+                <Avatar name={c.challenged.name ?? "?"} image={c.challenged.image} size={32}/>
+                <p className="text-xs font-sans text-ink/60 flex-1">Challenge sent to <span className="font-semibold">{c.challenged.name}</span></p>
+                <span className="text-[10px] text-gold font-sans">⏳ Pending</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Challenge a friend */}
+      {challengeable.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-ink/40 font-sans font-medium mb-3">⚔️ Challenge a friend</p>
+          <div className="space-y-2">
+            {challengeable.map((f) => (
+              <div key={f.id} className="bg-white rounded-2xl p-3 shadow-[0_1px_4px_rgba(45,42,38,0.06)] flex items-center gap-3">
+                <Avatar name={f.name} image={f.image} size={36}/>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold font-sans text-ink truncate">{f.name}</p>
+                  <p className="text-[10px] text-ink/35 font-sans">{Math.round(f.totalMinutes/60*10)/10}h this week</p>
+                </div>
+                <button
+                  onClick={() => sendChallenge(f.id)}
+                  disabled={challenging === f.id}
+                  className="flex items-center gap-1.5 bg-ink text-cream rounded-xl px-3 py-2 text-xs font-semibold font-sans hover:bg-ink/90 transition-colors disabled:opacity-40 shrink-0">
+                  <Swords size={11}/> {challenging === f.id ? "…" : "Challenge"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!pending.length && !active.length && !sent.length && challengeable.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-3xl mb-2">⚔️</p>
+          <p className="text-sm font-sans text-ink/30">No challenges yet</p>
+          <p className="text-xs font-sans text-ink/20 mt-1">Add friends to start a duel</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LeaderboardPage() {
+  const [tab, setTab]         = useState<"board" | "challenges">("board");
   const [rows, setRows]       = useState<LeaderRow[]>([]);
   const [myCode, setMyCode]   = useState("");
   const [loading, setLoading] = useState(true);
@@ -181,11 +379,33 @@ export default function LeaderboardPage() {
 
   return (
     <AppShell>
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="font-serif text-3xl font-semibold text-ink">Accountability <em>Board.</em></h1>
         <p className="text-sm text-ink/40 font-sans mt-1">This week · only you and friends you've added</p>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-mist/50 rounded-2xl p-1 mb-5">
+        {([
+          { key: "board" as const,      label: "🏆 Board"      },
+          { key: "challenges" as const, label: "⚔️ Challenges" },
+        ]).map(({ key, label }) => (
+          <button key={key} onClick={() => setTab(key)}
+            className="relative flex-1 py-2.5 text-sm font-medium font-sans rounded-xl"
+            style={{ color: tab === key ? "#2D2A26" : "#8B8075" }}>
+            {tab === key && (
+              <motion.div layoutId="lb-tab"
+                className="absolute inset-0 bg-white rounded-xl shadow-[0_1px_4px_rgba(45,42,38,0.10)]"
+                transition={{ type:"spring", damping:20, stiffness:300 }}/>
+            )}
+            <span className="relative z-10">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab === "challenges" && <ChallengesTab friends={rows} />}
+
+      {tab === "board" && <>
       {/* Your code */}
       {!loading && myCode && <div className="mb-5"><CodeBadge code={myCode} /></div>}
 
@@ -301,6 +521,7 @@ export default function LeaderboardPage() {
           </AnimatePresence>
         </div>
       )}
+      </>}
     </AppShell>
   );
 }

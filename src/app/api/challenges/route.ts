@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Must be friends
-  const friendship = await db.friendship.findFirst({ where: { userId, friendId: challengedId } });
+  const friendship = await db.friendship.findFirst({ where: { userId, friendId: challengedId } }).catch(() => null);
   if (!friendship) return NextResponse.json({ error: "Must be friends to challenge" }, { status: 403 });
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -51,14 +51,16 @@ export async function GET() {
       challenged: { select: { id: true, name: true, image: true } },
     },
     orderBy: { createdAt: "desc" },
-  });
+  }).catch(() => []);
+
+  if (!challenges.length) return NextResponse.json([]);
 
   // Enrich with weekly XP for both parties
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const enriched = await Promise.all(challenges.map(async (c) => {
     const [cxp, dxp] = await Promise.all([
-      db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: c.challengerId, weekStart } }, select: { xp: true } }),
-      db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: c.challengedId, weekStart } }, select: { xp: true } }),
+      db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: c.challengerId, weekStart } }, select: { xp: true } }).catch(() => null),
+      db.weeklyXp.findUnique({ where: { userId_weekStart: { userId: c.challengedId, weekStart } }, select: { xp: true } }).catch(() => null),
     ]);
     return {
       ...c,
