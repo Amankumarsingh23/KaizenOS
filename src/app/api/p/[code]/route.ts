@@ -14,7 +14,7 @@ export async function GET(
 
   const user = await db.user.findFirst({
     where: { id: { startsWith: code.toLowerCase() } },
-    select: { id: true, name: true, image: true, xp: true, createdAt: true },
+    select: { id: true, name: true, image: true, createdAt: true },
   });
 
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -23,18 +23,20 @@ export async function GET(
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const since90   = subDays(startOfDay(new Date()), 90);
 
+  // .catch() on all new-table queries so missing tables don't 500 the public page
   const [
     totalSessions, totalMinsRow, streaks, earnedBadges, dsaSkills,
-    weeklyXpRow, settings, reports,
+    weeklyXpRow, settings, reports, xpRow,
   ] = await Promise.all([
-    db.studySession.count({ where: { userId } }),
-    db.studySession.aggregate({ where: { userId }, _sum: { durationMinutes: true } }),
-    db.streak.findMany({ where: { userId } }),
-    db.earnedBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true }, orderBy: { earnedAt: "desc" } }),
-    db.dSASkill.findMany({ where: { userId, level: { gte: 3 } } }), // only Strong + Mastered
-    db.weeklyXp.findUnique({ where: { userId_weekStart: { userId, weekStart } }, select: { xp: true } }),
-    db.userSettings.findUnique({ where: { userId }, select: { featuredBadges: true } }),
-    db.dailyReport.findMany({ where: { userId }, select: { overallScore: true }, take: 30, orderBy: { date: "desc" } }),
+    db.studySession.count({ where: { userId } }).catch(() => 0),
+    db.studySession.aggregate({ where: { userId }, _sum: { durationMinutes: true } }).catch(() => ({ _sum: { durationMinutes: 0 } })),
+    db.streak.findMany({ where: { userId } }).catch(() => []),
+    db.earnedBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true }, orderBy: { earnedAt: "desc" } }).catch(() => []),
+    db.dSASkill.findMany({ where: { userId, level: { gte: 3 } } }).catch(() => []),
+    db.weeklyXp.findUnique({ where: { userId_weekStart: { userId, weekStart } }, select: { xp: true } }).catch(() => null),
+    db.userSettings.findUnique({ where: { userId }, select: { featuredBadges: true } }).catch(() => null),
+    db.dailyReport.findMany({ where: { userId }, select: { overallScore: true }, take: 30, orderBy: { date: "desc" } }).catch(() => []),
+    db.user.findUnique({ where: { id: userId }, select: { xp: true } }).catch(() => null),
   ]);
 
   // Activity heatmap (90 days)
@@ -88,7 +90,7 @@ export async function GET(
     .sort((a, b) => b[1] - a[1]).slice(0, 3)
     .map(([cat, mins]) => ({ cat, hours: Math.round(mins / 60 * 10) / 10 }));
 
-  const xp        = user.xp;
+  const xp        = (xpRow as { xp?: number } | null)?.xp ?? 0;
   const level     = getLevel(xp);
   const weekXp    = weeklyXpRow?.xp ?? 0;
   const totalHours = Math.round((totalMinsRow._sum.durationMinutes ?? 0) / 60 * 10) / 10;
