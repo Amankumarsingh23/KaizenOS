@@ -200,7 +200,7 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
   try {
     const response = await groq.chat.completions.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,  // increased — 1024 was truncating long JSON responses
       temperature: 0.3,
       messages: [{ role: "user", content: prompt }],
     });
@@ -226,9 +226,28 @@ export async function generateDailyReport(userId: string): Promise<ReportOutput>
     }
     parsed = JSON.parse(clean);
   } catch {
-    // Log the raw response so we can debug parse issues
     console.error("[daily-report] JSON parse failed. Raw:", rawText.slice(0, 300));
-    throw new Error(`Failed to parse AI response: ${rawText.slice(0, 100)}`);
+    // Truncation recovery: if response was cut off, try to patch it closed and re-parse
+    try {
+      const stripped2 = rawText.replace(/^```(?:json)?\s*/im,"").replace(/```\s*$/im,"").trim();
+      // Close any open string then close the object
+      const patched = stripped2.replace(/,\s*"[^"]*$/, "").replace(/[^}]*$/, "") + "}";
+      const fallback = JSON.parse(patched);
+      if (typeof fallback.overallScore === "number") {
+        parsed = {
+          overallScore:    fallback.overallScore,
+          categoryScores:  fallback.categoryScores ?? {},
+          summary:         fallback.summary ?? "Session logged.",
+          strengths:       fallback.strengths ?? "",
+          gaps:            fallback.gaps ?? "",
+          recommendations: fallback.recommendations ?? "",
+        };
+      } else {
+        throw new Error("no score");
+      }
+    } catch {
+      throw new Error(`Failed to parse AI response: ${rawText.slice(0, 100)}`);
+    }
   }
 
   // Validate & clamp
