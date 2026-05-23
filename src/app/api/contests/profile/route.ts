@@ -7,21 +7,30 @@ import { db } from "@/lib/db";
 const CF = "https://codeforces.com/api";
 
 export async function GET() {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = await getUserId(session);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const settings = await db.userSettings.findUnique({ where: { userId } });
-  const handle   = settings?.cfHandle?.trim();
+  let settings;
+  try {
+    settings = await db.userSettings.findUnique({ where: { userId } });
+  } catch {
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+  const handle = settings?.cfHandle?.trim();
 
   if (!handle) return NextResponse.json({ handle: null });
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const [infoRes, ratingRes] = await Promise.all([
-      fetch(`${CF}/user.info?handles=${encodeURIComponent(handle)}`, { next: { revalidate: 600 } }),
-      fetch(`${CF}/user.rating?handle=${encodeURIComponent(handle)}`, { next: { revalidate: 600 } }),
+      fetch(`${CF}/user.info?handles=${encodeURIComponent(handle)}`, { cache: "no-store", signal: controller.signal }),
+      fetch(`${CF}/user.rating?handle=${encodeURIComponent(handle)}`, { cache: "no-store", signal: controller.signal }),
     ]);
+    clearTimeout(timeout);
 
     const [infoJson, ratingJson] = await Promise.all([infoRes.json(), ratingRes.json()]);
 
@@ -60,7 +69,14 @@ export async function GET() {
         date:        new Date(c.ratingUpdateTimeSeconds * 1000).toISOString(),
       })),
     });
-  } catch {
-    return NextResponse.json({ error: "Failed to reach Codeforces API" }, { status: 502 });
+  } catch (err) {
+    const msg = err instanceof Error && err.name === "AbortError"
+      ? "Codeforces API timed out"
+      : "Failed to reach Codeforces API";
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+  } catch (err) {
+    console.error("[/api/contests/profile]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

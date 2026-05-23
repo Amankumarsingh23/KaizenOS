@@ -39,7 +39,7 @@ const RECENT_QUERY = `
   }
 `;
 
-async function lcFetch(query: string, variables: Record<string, unknown>) {
+async function lcFetch(query: string, variables: Record<string, unknown>, signal?: AbortSignal) {
   const res = await fetch(LC_GQL, {
     method: "POST",
     headers: {
@@ -48,30 +48,40 @@ async function lcFetch(query: string, variables: Record<string, unknown>) {
       "User-Agent":    "Mozilla/5.0",
     },
     body: JSON.stringify({ query, variables }),
-    next: { revalidate: 600 },
+    cache: "no-store",
+    signal,
   });
   if (!res.ok) throw new Error(`LC API ${res.status}`);
   return res.json();
 }
 
 export async function GET() {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = await getUserId(session);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const settings = await db.userSettings.findUnique({ where: { userId } });
-  const handle   = settings?.lcHandle?.trim();
+  let settings;
+  try {
+    settings = await db.userSettings.findUnique({ where: { userId } });
+  } catch {
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+  const handle = settings?.lcHandle?.trim();
   if (!handle) return NextResponse.json({ handle: null });
 
   const year = new Date().getFullYear();
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const [statsJson, calJson, recentJson] = await Promise.all([
-      lcFetch(STATS_QUERY,    { username: handle }),
-      lcFetch(CALENDAR_QUERY, { username: handle, year }),
-      lcFetch(RECENT_QUERY,   { username: handle, limit: 10 }),
+      lcFetch(STATS_QUERY,    { username: handle }, controller.signal),
+      lcFetch(CALENDAR_QUERY, { username: handle, year }, controller.signal),
+      lcFetch(RECENT_QUERY,   { username: handle, limit: 10 }, controller.signal),
     ]);
+    clearTimeout(timeout);
 
     const user = statsJson.data?.matchedUser;
     if (!user) return NextResponse.json({ error: `LeetCode user "${handle}" not found`, handle }, { status: 404 });
@@ -132,6 +142,13 @@ export async function GET() {
       })),
     });
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 502 });
+    const msg = err instanceof Error && err.name === "AbortError"
+      ? "LeetCode API timed out"
+      : String(err);
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+  } catch (err) {
+    console.error("[/api/leetcode/stats]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

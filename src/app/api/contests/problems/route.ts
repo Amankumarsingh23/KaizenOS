@@ -71,27 +71,39 @@ interface Submission {
 }
 
 export async function GET() {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = await getUserId(session);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const settings = await db.userSettings.findUnique({ where: { userId } });
-  const handle   = settings?.cfHandle?.trim();
+  let settings;
+  try {
+    settings = await db.userSettings.findUnique({ where: { userId } });
+  } catch {
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+  const handle = settings?.cfHandle?.trim();
   if (!handle) return NextResponse.json({ handle: null });
 
   // Fetch last 10,000 submissions (enough for any active CP student)
   let submissions: Submission[] = [];
   try {
-    const res  = await fetch(
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(
       `https://codeforces.com/api/user.status?handle=${encodeURIComponent(handle)}&from=1&count=10000`,
-      { next: { revalidate: 900 } } // cache 15 min
+      { signal: controller.signal, cache: "no-store" }
     );
+    clearTimeout(timeout);
     const json = await res.json();
     if (json.status !== "OK") return NextResponse.json({ error: "CF handle not found", handle }, { status: 404 });
     submissions = json.result as Submission[];
-  } catch {
-    return NextResponse.json({ error: "Failed to reach Codeforces API" }, { status: 502 });
+  } catch (err) {
+    const msg = err instanceof Error && err.name === "AbortError"
+      ? "Codeforces API timed out"
+      : "Failed to reach Codeforces API";
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 
   const accepted = submissions.filter((s) => s.verdict === "OK");
@@ -175,4 +187,8 @@ export async function GET() {
     skillSuggestions,
     calendar,
   });
+  } catch (err) {
+    console.error("[/api/contests/problems]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
