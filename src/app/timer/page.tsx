@@ -6,6 +6,7 @@ import {
   Code2, Users, Briefcase, FolderOpen, Globe,
   Languages, Mic, BookOpen, Play, Pause, Square,
   Star, ChevronDown, X, CheckCircle2, RotateCcw,
+  History, AlertCircle,
 } from "lucide-react";
 import { AppShell }         from "@/components/layout/AppShell";
 import { Badge }            from "@/components/ui/Badge";
@@ -35,18 +36,16 @@ const CATEGORIES: {
 
 // ─── Subcategory forms ────────────────────────────────────────────────────────
 
-const PLATFORMS = ["LeetCode", "Codeforces", "GFG", "HackerRank", "AtCoder", "Other"];
-const DIFFICULTIES = ["Easy", "Medium", "Hard"];
-const INTERVIEW_TYPES = ["HR", "Technical", "System Design"];
-const GD_FORMATS = ["Group Discussion", "Solo Practice", "Topic Research"];
-const JP_TYPES = ["Vocabulary", "Grammar", "Reading", "Listening", "Speaking", "Writing"];
-const COMM_TYPES = ["STAR Story", "Presentation", "Group Discussion", "Mock Speech"];
-const PROJECT_TASKS = ["Design", "Coding", "Documentation", "Research", "Testing"];
+const PLATFORMS      = ["LeetCode", "Codeforces", "GFG", "HackerRank", "AtCoder", "Other"];
+const DIFFICULTIES   = ["Easy", "Medium", "Hard"];
+const INTERVIEW_TYPES= ["HR", "Technical", "System Design"];
+const GD_FORMATS     = ["Group Discussion", "Solo Practice", "Topic Research"];
+const JP_TYPES       = ["Vocabulary", "Grammar", "Reading", "Listening", "Speaking", "Writing"];
+const COMM_TYPES     = ["STAR Story", "Presentation", "Group Discussion", "Mock Speech"];
+const PROJECT_TASKS  = ["Design", "Coding", "Documentation", "Research", "Testing"];
 
 function SubcategoryFields({
-  category,
-  meta,
-  onChange,
+  category, meta, onChange,
 }: {
   category: Category;
   meta: Record<string, string>;
@@ -86,9 +85,7 @@ function SubcategoryFields({
     <div key={key}>
       <label className="block text-xs font-medium text-ink/50 mb-1.5 font-sans">{label}</label>
       <input
-        type="number"
-        min="0"
-        max="100"
+        type="number" min="0" max="100"
         value={meta[key] ?? ""}
         onChange={(e) => onChange(key, e.target.value)}
         placeholder={placeholder}
@@ -101,7 +98,7 @@ function SubcategoryFields({
     case "DSA":
       return <div className="space-y-3">
         {num("Problems solved this session", "count", "e.g. 3")}
-        {txt("Problem names (optional)", "problem", "e.g. Two Sum, LRU Cache, Merge Intervals")}
+        {txt("Problem names (optional)", "problem", "e.g. Two Sum, LRU Cache")}
         {sel("Platform", "platform", PLATFORMS)}
         {sel("Difficulty", "difficulty", DIFFICULTIES)}
       </div>;
@@ -147,43 +144,34 @@ function SubcategoryFields({
 
 // ─── Timer ring ───────────────────────────────────────────────────────────────
 
-const RING_R = 88;
-const RING_C = 100;
+const RING_R        = 88;
+const RING_C        = 100;
 const CIRCUMFERENCE = 2 * Math.PI * RING_R;
-const BLOCK = 25 * 60; // 25-minute Pomodoro block
+const BLOCK         = 25 * 60;
 
 function TimerRing({ elapsed, status }: { elapsed: number; status: string }) {
-  const pct    = (elapsed % BLOCK) / BLOCK;
-  const offset = CIRCUMFERENCE * (1 - pct);
-  const color  = status === "paused" ? "#C4A35A" : "#6B8F71";
+  const pct      = (elapsed % BLOCK) / BLOCK;
+  const offset   = CIRCUMFERENCE * (1 - pct);
+  const color    = status === "paused" ? "#C4A35A" : "#6B8F71";
   const isRunning = status === "running";
 
   return (
     <svg width="200" height="200" viewBox="0 0 200 200" className="absolute inset-0">
-      {/* Pulse ring — only when running */}
       {isRunning && (
         <motion.circle
           cx={RING_C} cy={RING_C} r={RING_R}
-          fill="none"
-          stroke={color}
-          strokeWidth="6"
+          fill="none" stroke={color} strokeWidth="6"
           animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0, 0.3] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "100px 100px" }}
         />
       )}
-      {/* Track */}
       <circle cx={RING_C} cy={RING_C} r={RING_R}
         fill="none" stroke="var(--color-mist,#E8E2D8)" strokeWidth="3" />
-      {/* Progress */}
       <motion.circle
         cx={RING_C} cy={RING_C} r={RING_R}
-        fill="none"
-        stroke={color}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeDasharray={CIRCUMFERENCE}
-        strokeDashoffset={offset}
+        fill="none" stroke={color} strokeWidth="3" strokeLinecap="round"
+        strokeDasharray={CIRCUMFERENCE} strokeDashoffset={offset}
         transform="rotate(-90 100 100)"
         transition={{ duration: 0.4 }}
       />
@@ -191,12 +179,10 @@ function TimerRing({ elapsed, status }: { elapsed: number; status: string }) {
   );
 }
 
-// ─── Format time ──────────────────────────────────────────────────────────────
-
 function fmt(secs: number) {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
+  const h  = Math.floor(secs / 3600);
+  const m  = Math.floor((secs % 3600) / 60);
+  const s  = secs % 60;
   const mm = String(m).padStart(2, "0");
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
@@ -206,15 +192,16 @@ function fmt(secs: number) {
 
 function SavePanel({ onClose }: { onClose: () => void }) {
   const { category, elapsed, startTime, saveSession } = useTimer();
-  const [notes, setNotes]           = useState("");
-  const [rating, setRating]         = useState(0);
-  const [distraction, setDistract]  = useState(3); // 1=fully focused → 5=very distracted
-  const [meta, setMeta]             = useState<Record<string, string>>({});
-  const [saving, setSaving]         = useState(false);
-  const [saved, setSaved]           = useState(false);
-  const textRef                     = useRef<HTMLTextAreaElement>(null);
+  const [notes, setNotes]          = useState("");
+  const [rating, setRating]        = useState(0);
+  const [distraction, setDistract] = useState(3);
+  const [meta, setMeta]            = useState<Record<string, string>>({});
+  const [saving, setSaving]        = useState(false);
+  const [saved, setSaved]          = useState(false);
+  const [saveError, setSaveError]  = useState(false);
+  const textRef                    = useRef<HTMLTextAreaElement>(null);
 
-  const endTime = new Date();
+  const endTime      = new Date();
   const durationMins = Math.max(1, Math.round(elapsed / 60));
 
   function setMetaKey(key: string, val: string) {
@@ -224,15 +211,21 @@ function SavePanel({ onClose }: { onClose: () => void }) {
   async function handleSave() {
     if (!rating) return;
     setSaving(true);
-    const payload: SavePayload = {
-      notes: notes.trim() || "—",
-      selfRating: rating,
-      subcategory: meta.problem || meta.topic || meta.title || meta.project || undefined,
-      metadata: { ...meta, distractionLevel: String(distraction) },
-    };
-    await saveSession(payload);
-    setSaved(true);
-    setTimeout(onClose, 1000);
+    setSaveError(false);
+    try {
+      const payload: SavePayload = {
+        notes:       notes.trim() || "—",
+        selfRating:  rating,
+        subcategory: meta.problem || meta.topic || meta.title || meta.project || undefined,
+        metadata:    { ...meta, distractionLevel: String(distraction) },
+      };
+      await saveSession(payload);
+      setSaved(true);
+      setTimeout(onClose, 1000);
+    } catch {
+      setSaving(false);
+      setSaveError(true);
+    }
   }
 
   return (
@@ -244,13 +237,11 @@ function SavePanel({ onClose }: { onClose: () => void }) {
       className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl overflow-hidden"
       style={{ boxShadow: "0 -8px 40px rgba(45,42,38,0.18)", maxHeight: "92dvh" }}
     >
-      {/* Drag handle */}
       <div className="flex justify-center pt-3 pb-1">
         <div className="w-10 h-1 rounded-full bg-mist" />
       </div>
 
       <div className="overflow-y-auto px-5 pb-10" style={{ maxHeight: "calc(92dvh - 28px)" }}>
-        {/* Header */}
         <div className="flex items-center justify-between mb-5 pt-1">
           <div>
             <h2 className="font-serif text-xl font-semibold text-ink">Save Session</h2>
@@ -260,6 +251,16 @@ function SavePanel({ onClose }: { onClose: () => void }) {
             <X size={18} />
           </button>
         </div>
+
+        {/* Error banner */}
+        {saveError && (
+          <div className="flex items-center gap-2.5 bg-terracotta/10 border border-terracotta/20 rounded-2xl px-4 py-3 mb-4">
+            <AlertCircle size={16} className="text-terracotta shrink-0" />
+            <p className="text-sm font-sans text-terracotta">
+              Failed to save — check your connection and try again.
+            </p>
+          </div>
+        )}
 
         {/* Summary strip */}
         <div className="flex items-center gap-3 bg-cream rounded-2xl p-4 mb-5">
@@ -272,7 +273,6 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Subcategory fields */}
         {category && (
           <div className="mb-5">
             <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-3 font-sans">Details</p>
@@ -280,11 +280,8 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* Notes */}
         <div className="mb-5">
-          <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">
-            Notes
-          </label>
+          <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Notes</label>
           <textarea
             ref={textRef}
             value={notes}
@@ -295,11 +292,8 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           />
         </div>
 
-        {/* Star rating */}
         <div className="mb-6">
-          <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">
-            Self-rating
-          </p>
+          <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Self-rating</p>
           <div className="flex gap-3">
             {[1, 2, 3, 4, 5].map((n) => (
               <motion.button
@@ -323,12 +317,9 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Distraction level */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-ink/40 uppercase tracking-widest font-sans">
-              Focus level
-            </p>
+            <p className="text-xs font-medium text-ink/40 uppercase tracking-widest font-sans">Focus level</p>
             <p className="text-xs font-sans font-semibold" style={{
               color: distraction === 1 ? "#6B8F71" : distraction === 2 ? "#8FBF95"
                 : distraction === 3 ? "#C4A35A" : distraction === 4 ? "#C47D5A" : "#C0392B"
@@ -336,8 +327,7 @@ function SavePanel({ onClose }: { onClose: () => void }) {
               {["","🧘 Fully focused","😌 Mostly focused","😐 Some distractions","📱 Quite distracted","🔥 Very distracted"][distraction]}
             </p>
           </div>
-          <input
-            type="range" min={1} max={5} value={distraction}
+          <input type="range" min={1} max={5} value={distraction}
             onChange={(e) => setDistract(Number(e.target.value))}
             className="w-full accent-sage"
           />
@@ -347,7 +337,6 @@ function SavePanel({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Save button */}
         <motion.button
           onClick={handleSave}
           disabled={rating === 0 || saving || saved}
@@ -365,10 +354,243 @@ function SavePanel({ onClose }: { onClose: () => void }) {
               <motion.span key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 Saving…
               </motion.span>
+            ) : saveError ? (
+              <motion.span key="retry" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                Try again
+              </motion.span>
             ) : (
               <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 Save Session
               </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Missed Session Panel ─────────────────────────────────────────────────────
+
+function MissedSessionPanel({ onClose }: { onClose: () => void }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const oneHourAgo = () => {
+    const d = new Date(Date.now() - 3600_000);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const [cat, setCat]            = useState<Category | null>(null);
+  const [date, setDate]          = useState(todayStr);
+  const [startT, setStartT]      = useState(oneHourAgo);
+  const [durationM, setDuration] = useState("60");
+  const [notes, setNotes]        = useState("");
+  const [rating, setRating]      = useState(0);
+  const [meta, setMeta]          = useState<Record<string, string>>({});
+  const [saving, setSaving]      = useState(false);
+  const [saved, setSaved]        = useState(false);
+  const [error, setError]        = useState(false);
+
+  function setMetaKey(key: string, val: string) {
+    setMeta((prev) => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSubmit() {
+    if (!cat || !rating || !date || !startT || !durationM) return;
+    const [h, m]      = startT.split(":").map(Number);
+    const startDate   = new Date(date);
+    startDate.setHours(h, m, 0, 0);
+    const durationMins = Math.max(1, Number(durationM));
+    const endDate      = new Date(startDate.getTime() + durationMins * 60_000);
+
+    // Don't allow future sessions
+    if (startDate > new Date()) return;
+
+    setSaving(true);
+    setError(false);
+    try {
+      const controller = new AbortController();
+      const timeout    = setTimeout(() => controller.abort(), 10_000);
+      const res = await fetch("/api/sessions", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category:        cat,
+          subcategory:     meta.problem || meta.topic || meta.title || meta.project || null,
+          startTime:       startDate.toISOString(),
+          endTime:         endDate.toISOString(),
+          durationMinutes: durationMins,
+          notes:           notes.trim() || "—",
+          selfRating:      rating,
+          metadata:        JSON.stringify(meta),
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`${res.status}`);
+      setSaved(true);
+      setTimeout(onClose, 1000);
+    } catch {
+      setSaving(false);
+      setError(true);
+    }
+  }
+
+  const canSubmit = !!cat && !!rating && !!date && !!startT && !!durationM && !saving && !saved;
+
+  return (
+    <motion.div
+      initial={{ y: "100%" }}
+      animate={{ y: 0 }}
+      exit={{ y: "100%" }}
+      transition={{ type: "spring", damping: 26, stiffness: 300 }}
+      className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl overflow-hidden"
+      style={{ boxShadow: "0 -8px 40px rgba(45,42,38,0.18)", maxHeight: "94dvh" }}
+    >
+      <div className="flex justify-center pt-3 pb-1">
+        <div className="w-10 h-1 rounded-full bg-mist" />
+      </div>
+
+      <div className="overflow-y-auto px-5 pb-10" style={{ maxHeight: "calc(94dvh - 28px)" }}>
+        <div className="flex items-center justify-between mb-5 pt-1">
+          <div>
+            <h2 className="font-serif text-xl font-semibold text-ink">Log past session</h2>
+            <p className="text-xs text-ink/40 font-sans mt-0.5">Missed logging? Add it retroactively</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-mist/60 text-ink/40">
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2.5 bg-terracotta/10 border border-terracotta/20 rounded-2xl px-4 py-3 mb-4">
+            <AlertCircle size={16} className="text-terracotta shrink-0" />
+            <p className="text-sm font-sans text-terracotta">Failed to save — check connection and try again.</p>
+          </div>
+        )}
+
+        {/* Category */}
+        <div className="mb-5">
+          <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-3 font-sans">Category</p>
+          <div className="grid grid-cols-2 gap-2">
+            {CATEGORIES.map(({ key, label, sublabel, Icon, iconBg }) => (
+              <button
+                key={key}
+                onClick={() => setCat(key)}
+                className={[
+                  "flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition-all",
+                  cat === key
+                    ? "border-sage bg-sage/5 shadow-[0_2px_12px_rgba(107,143,113,0.15)]"
+                    : "border-transparent bg-cream hover:border-mist",
+                ].join(" ")}
+              >
+                <div className={`p-1.5 rounded-xl shrink-0 ${iconBg}`}>
+                  <Icon size={16} strokeWidth={1.8} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-ink font-sans leading-none">{label}</p>
+                  <p className="text-[10px] text-ink/40 font-sans mt-0.5 leading-none">{sublabel}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Date + time */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div>
+            <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Date</label>
+            <input
+              type="date"
+              value={date}
+              max={todayStr}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-sans text-ink focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Start time</label>
+            <input
+              type="time"
+              value={startT}
+              onChange={(e) => setStartT(e.target.value)}
+              className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-sans text-ink focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/50"
+            />
+          </div>
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Duration (minutes)</label>
+          <input
+            type="number" min="1" max="480"
+            value={durationM}
+            onChange={(e) => setDuration(e.target.value)}
+            className="w-full bg-cream border border-mist rounded-xl px-3 py-2.5 text-sm font-mono text-ink focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/50"
+          />
+        </div>
+
+        {/* Subcategory details */}
+        {cat && (
+          <div className="mb-5">
+            <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-3 font-sans">Details</p>
+            <SubcategoryFields category={cat} meta={meta} onChange={setMetaKey} />
+          </div>
+        )}
+
+        <div className="mb-5">
+          <label className="block text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="What did you work on?"
+            rows={3}
+            className="w-full bg-cream border border-mist rounded-2xl px-4 py-3 text-sm font-sans text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/50 resize-none transition-colors leading-relaxed"
+          />
+        </div>
+
+        <div className="mb-6">
+          <p className="text-xs font-medium text-ink/40 uppercase tracking-widest mb-2 font-sans">Self-rating</p>
+          <div className="flex gap-3">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <motion.button
+                key={n}
+                onClick={() => setRating(n)}
+                whileTap={{ scale: 0.80 }}
+                animate={n <= rating ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 14 }}
+              >
+                <Star
+                  size={30}
+                  className={n <= rating ? "text-gold" : "text-mist"}
+                  fill={n <= rating ? "currentColor" : "none"}
+                  strokeWidth={n <= rating ? 0 : 1.5}
+                />
+              </motion.button>
+            ))}
+          </div>
+          {rating === 0 && (
+            <p className="text-xs text-terracotta/70 mt-1.5 font-sans">Tap stars to rate</p>
+          )}
+        </div>
+
+        <motion.button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          whileTap={canSubmit ? { scale: 0.97 } : {}}
+          className="w-full flex items-center justify-center gap-2 bg-sage text-white rounded-2xl py-3.5 text-sm font-semibold font-sans disabled:opacity-50"
+          style={{ boxShadow: "0 2px 12px rgba(107,143,113,0.35)" }}
+        >
+          <AnimatePresence mode="wait">
+            {saved ? (
+              <motion.span key="saved" className="flex items-center gap-2"
+                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}>
+                <SuccessCheckmark size={16} color="white" /> Logged!
+              </motion.span>
+            ) : saving ? (
+              <motion.span key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Saving…</motion.span>
+            ) : error ? (
+              <motion.span key="retry" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Try again</motion.span>
+            ) : (
+              <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Log Session</motion.span>
             )}
           </AnimatePresence>
         </motion.button>
@@ -385,13 +607,12 @@ export default function TimerPage() {
     selectCategory, start, pause, resume, stop, reset,
   } = useTimer();
 
-  const [showPanel, setShowPanel] = useState(false);
+  const [showPanel, setShowPanel]   = useState(false);
+  const [showMissed, setShowMissed] = useState(false);
 
-  // Open panel when timer is stopped
   const isActive  = status === "running" || status === "paused";
   const isStopped = status === "stopped";
 
-  // Open save panel automatically when stopped
   if (isStopped && !showPanel) setShowPanel(true);
 
   const activeCat = CATEGORIES.find((c) => c.key === category);
@@ -416,7 +637,6 @@ export default function TimerPage() {
               <p className="text-sm text-ink/45 font-sans mt-1">Choose a category to begin</p>
             </div>
 
-            {/* 2×4 grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               {CATEGORIES.map(({ key, label, sublabel, Icon, accent, iconBg }) => {
                 const isSelected = category === key;
@@ -432,7 +652,6 @@ export default function TimerPage() {
                         : "border-transparent shadow-[0_2px_12px_rgba(45,42,38,0.06)] hover:border-mist",
                     ].join(" ")}
                   >
-                    {/* Color accent stripe */}
                     {isSelected && (
                       <motion.div
                         layoutId="cat-accent"
@@ -454,17 +673,25 @@ export default function TimerPage() {
               })}
             </div>
 
-            {/* Start button */}
             <motion.button
               onClick={start}
               disabled={!category}
               whileTap={{ scale: 0.97 }}
               className="w-full flex items-center justify-center gap-2.5 bg-sage text-white rounded-2xl py-4 text-base font-semibold font-sans transition-all disabled:opacity-35"
-              style={category ? { boxShadow: "0 4px_20px_rgba(107,143,113,0.35)" } : {}}
+              style={category ? { boxShadow: "0 4px 20px rgba(107,143,113,0.35)" } : {}}
             >
               <Play size={18} fill="currentColor" strokeWidth={0} />
               {category ? `Start ${activeCat?.label} session` : "Select a category first"}
             </motion.button>
+
+            {/* Log missed session */}
+            <button
+              onClick={() => setShowMissed(true)}
+              className="w-full flex items-center justify-center gap-2 mt-3 py-2.5 text-sm text-ink/40 font-sans hover:text-ink/60 transition-colors"
+            >
+              <History size={15} />
+              Log a missed session
+            </button>
           </motion.div>
         )}
 
@@ -478,7 +705,6 @@ export default function TimerPage() {
             transition={{ duration: 0.2 }}
             className="flex flex-col items-center"
           >
-            {/* Active category chip */}
             <div className="w-full flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 {category && <Badge variant={category} />}
@@ -495,7 +721,6 @@ export default function TimerPage() {
               </button>
             </div>
 
-            {/* Timer ring + clock */}
             <div className="relative w-[200px] h-[200px] flex items-center justify-center mb-8">
               <TimerRing elapsed={elapsed} status={status} />
               <div className="text-center z-10">
@@ -512,7 +737,6 @@ export default function TimerPage() {
               </div>
             </div>
 
-            {/* Controls */}
             {!isStopped && (
               <div className="flex items-center gap-4">
                 {status === "running" ? (
@@ -545,7 +769,6 @@ export default function TimerPage() {
               </div>
             )}
 
-            {/* Waiting for save panel */}
             {isStopped && !showPanel && (
               <p className="text-sm text-ink/40 font-sans mt-4">Opening save panel…</p>
             )}
@@ -553,19 +776,30 @@ export default function TimerPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Save panel (bottom sheet) ──────────────────────────────────────── */}
+      {/* ── Save panel ─────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showPanel && (
           <>
-            {/* Backdrop */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px]"
               onClick={() => { setShowPanel(false); reset(); }}
             />
-            <SavePanel onClose={() => { setShowPanel(false); }} />
+            <SavePanel onClose={() => setShowPanel(false)} />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Missed session panel ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showMissed && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px]"
+              onClick={() => setShowMissed(false)}
+            />
+            <MissedSessionPanel onClose={() => setShowMissed(false)} />
           </>
         )}
       </AnimatePresence>

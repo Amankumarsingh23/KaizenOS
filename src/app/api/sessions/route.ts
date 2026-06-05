@@ -5,6 +5,7 @@ import { getUserId } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -121,6 +122,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(studySession, { status: 201 });
+  } catch (err) {
+    console.error("[/api/sessions POST]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {
